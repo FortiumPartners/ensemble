@@ -4,7 +4,16 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { parseTestOutput, isGreen, runTests } = require('../lib/reqnroll-run');
+const cp = require('child_process');
+
+const { parseTestOutput, isGreen, runTests, normalizeFilter } = require('../lib/reqnroll-run');
+
+// The wrapper calls `execFileSync('dotnet', args, ...)`; spy on it so the argv it
+// hands to dotnet can be asserted without a .NET SDK.
+jest.mock('child_process', () => {
+  const actual = jest.requireActual('child_process');
+  return { ...actual, execFileSync: jest.fn(actual.execFileSync) };
+});
 
 const TRX_PASS = `<?xml version="1.0" encoding="UTF-8"?>
 <TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
@@ -87,6 +96,145 @@ describe('isGreen', () => {
   });
   test('a run with zero tests is NOT green (nothing proven)', () => {
     expect(isGreen({ passed: 0, failed: 0, pending: 0, total: 0, undefinedSteps: [] })).toBe(false);
+  });
+});
+
+// `dotnet test` reads an argument starting with '@' as a RESPONSE FILE, prints
+// usage and exits 1 having run nothing, so the red/green loop saw every
+// scenario as red. These tests assert the argv handed to the spawn (no SDK needed).
+describe('runTests --filter argument vector', () => {
+  let captured = null;
+  let dir = null;
+
+  beforeEach(() => {
+    captured = null;
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rn-filter-'));
+    cp.execFileSync.mockImplementation((cmd, args) => {
+      captured = { cmd, args };
+      const err = new Error('stubbed dotnet run');
+      err.status = 0;
+      err.stdout = '';
+      err.stderr = '';
+      throw err;
+    });
+  });
+
+  afterEach(() => {
+    cp.execFileSync.mockReset();
+    cp.execFileSync.mockImplementation(jest.requireActual('child_process').execFileSync);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const filterArg = (opts) => {
+    runTests(dir, opts);
+    const i = captured.args.indexOf('--filter');
+    return i === -1 ? null : captured.args[i + 1];
+  };
+
+  test('a bare @<AC-id> tag becomes Category=<AC-id>', () => {
+    expect(filterArg({ filter: '@AC-001-1' })).toBe('Category=AC-001-1');
+  });
+
+  test('an explicit Category= expression is passed through unchanged', () => {
+    expect(filterArg({ filter: 'Category=AC-001-1' })).toBe('Category=AC-001-1');
+  });
+
+  test('a FullyQualifiedName~ expression is passed through unchanged', () => {
+    expect(filterArg({ filter: 'FullyQualifiedName~Foo' })).toBe('FullyQualifiedName~Foo');
+  });
+
+  test('a compound expression is passed through unchanged', () => {
+    expect(filterArg({ filter: 'Category=AC-001-1&Priority=1' })).toBe(
+      'Category=AC-001-1&Priority=1'
+    );
+  });
+
+  test('no filter means no --filter argument at all', () => {
+    runTests(dir);
+    expect(captured.args).not.toContain('--filter');
+  });
+
+  test('the normalised filter is the only thing dotnet ever sees', () => {
+    runTests(dir, { filter: '@AC-001-1' });
+    expect(captured.args).not.toContain('@AC-001-1');
+  });
+
+  test('a blank filter produces no --filter argument', () => {
+    runTests(dir, { filter: '   ' });
+    expect(captured.args).not.toContain('--filter');
+  });
+
+  test('a compound filter arrives as ONE argument, never split on | or &', () => {
+    const arg = filterArg({ filter: 'Category=A|Category=B' });
+    expect(arg).toBe('Category=A|Category=B');
+    expect(captured.args.filter((a) => a.includes('Category='))).toHaveLength(1);
+  });
+
+  test('every tag in a compound filter is rewritten, not only the first', () => {
+    expect(filterArg({ filter: '@AC-001-1|@AC-001-2' })).toBe(
+      'Category=AC-001-1|Category=AC-001-2'
+    );
+  });
+
+  test('a tag mixed into an existing expression is rewritten too', () => {
+    expect(filterArg({ filter: 'Category=AC-001-1|@AC-001-2' })).toBe(
+      'Category=AC-001-1|Category=AC-001-2'
+    );
+  });
+
+  test('the filter is trimmed before it is normalised', () => {
+    expect(filterArg({ filter: '  @AC-001-1  ' })).toBe('Category=AC-001-1');
+  });
+
+  test('a filter that cannot be expressed fails loudly instead of running zero tests', () => {
+    expect(() => runTests(dir, { filter: '@AC-001-1 @AC-001-2' })).toThrow(/response file/);
+    expect(cp.execFileSync).not.toHaveBeenCalled();
+  });
+
+  test('a negated tag never reaches dotnet as a filter that matches nothing', () => {
+    expect(() => runTests(dir, { filter: '!@AC-001-1' })).toThrow(/negation is written/);
+    expect(cp.execFileSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('normalizeFilter', () => {
+  test.each([
+    ['@AC-001-1', 'Category=AC-001-1'],
+    ['@needs-clarification', 'Category=needs-clarification'],
+    // A plain word is a valid VSTest filter (it matches the test's full name),
+    // so it must NOT be rewritten into Category=<word>.
+    ['AC-001-1', 'AC-001-1'],
+    ['PRDSample', 'PRDSample'],
+    ['Category=AC-001-1', 'Category=AC-001-1'],
+    ['FullyQualifiedName~Foo', 'FullyQualifiedName~Foo'],
+    ['Category=A|Category=B', 'Category=A|Category=B'],
+    ['TestCategory!=AC-001-1', 'TestCategory!=AC-001-1'],
+    // Every tag operand is rewritten, so compound filters keep working.
+    ['@AC-001-1|@AC-001-2', 'Category=AC-001-1|Category=AC-001-2'],
+    ['Category=AC-001-1|@AC-001-2', 'Category=AC-001-1|Category=AC-001-2'],
+    // An `@` that is not at the start of a condition is part of a value.
+    ['FullyQualifiedName~@weird', 'FullyQualifiedName~@weird'],
+    ['  @AC-001-1  ', 'Category=AC-001-1'],
+  ])('%s -> %s', (input, expected) => {
+    expect(normalizeFilter(input)).toBe(expected);
+  });
+
+  test('no filter at all means no filter expression', () => {
+    expect(normalizeFilter(undefined)).toBeNull();
+    expect(normalizeFilter(null)).toBeNull();
+    expect(normalizeFilter('')).toBeNull();
+    expect(normalizeFilter('   ')).toBeNull();
+  });
+
+  test.each(['@AC-001-1 @AC-001-2', 'Category=AC-001-1 @AC-001-2', '@'])(
+    '%s is rejected: dotnet would read it as a response file',
+    (input) => {
+      expect(() => normalizeFilter(input)).toThrow(/response file/);
+    }
+  );
+
+  test('a negated tag is rejected: dotnet has no standalone "!" operator', () => {
+    expect(() => normalizeFilter('!@AC-001-1')).toThrow(/negation is written/);
   });
 });
 

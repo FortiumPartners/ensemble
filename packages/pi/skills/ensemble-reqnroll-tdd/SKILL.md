@@ -55,7 +55,7 @@ Fill this scenario's binding bodies against the contract you wish existed
 
 Prove the scenario fails before writing any implementation
 
-- Run: node "$REQNROLL_CLI" run --project <projectDir> --filter @<AC-id> --json
+- Run: node "$REQNROLL_CLI" run --project <projectDir> --filter Category=<AC-id> --json
 - REQUIRE green=false (failing assertion, Pending, or undefined step). If green=true immediately, REJECT: the assertion is vacuous or the behavior already exists -- send back to the binding-specialist.
 
 #### Step 2.3: Implement to green (inner TDD loop)
@@ -68,7 +68,7 @@ Write production code to satisfy the now-failing scenario
 
 Confirm the scenario passes and the proof is real
 
-- Run: node "$REQNROLL_CLI" run --project <projectDir> --filter @<AC-id> --json; REQUIRE green=true with zero Pending
+- Run: node "$REQNROLL_CLI" run --project <projectDir> --filter Category=<AC-id> --json; REQUIRE green=true with zero Pending
 - Delegate: Task(subagent_type=code-reviewer, prompt='Confirm scenario <AC-id> Then steps assert the acceptance criterion meaningfully (not a no-op) and no [Given/When/Then] attribute was modified.')
 - Advance to the next scenario / PR slice and repeat from step 1
 

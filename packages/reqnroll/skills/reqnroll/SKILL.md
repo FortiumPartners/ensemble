@@ -116,7 +116,7 @@ passing assertion is not.
 
 ```bash
 dotnet test --logger "trx;LogFileName=reqnroll.trx"
-dotnet test --filter "@AC-001-1"      # one scenario by tag
+dotnet test --filter "Category=AC-001-1"  # one scenario by tag
 ```
 
 A `PendingStepException` or "No matching step definition" both mean **red** — the
