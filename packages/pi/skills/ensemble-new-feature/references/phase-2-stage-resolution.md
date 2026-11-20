@@ -8,11 +8,11 @@ Pick the eligible stage from run-index state alone.
 Read the run's stage and stageOutcome from the run index.
 
 - Read ACTIVE_RUN.stage and ACTIVE_RUN.stageOutcome.kind.
-- If ACTIVE_RUN.stageOutcome.kind === "success": ELIGIBLE_STAGE is the next entry in STAGE_ORDER (types.ts) after ACTIVE_RUN.stage; "done" has no successor, so a run at "done" has nothing left to run.
+- If ACTIVE_RUN.stageOutcome.kind === "success": ELIGIBLE_STAGE is the next entry in STAGE_ORDER (types.ts) after ACTIVE_RUN.stage; "done" has no successor.
 - Else ("approval_wait", "decline", or "failure"): ELIGIBLE_STAGE is ACTIVE_RUN.stage itself -- the current stage has not completed, so it (and only it) is what runs next, regardless of what files already exist on disk with plausible names for a later stage.
 - Never consult the filesystem (glob, ls) to decide ELIGIBLE_STAGE; the only input is the run index.
-- Plan-change staleness check: if ELIGIBLE_STAGE is "implementation" and ACTIVE_RUN.implementationApprovedAt is non-null, compare it with the recordedAt of every artifacts[] entry whose producingStage is "trd_refine" or "beads_plan". If any is later, the approved plan has changed since approval: call RUN_INDEX_CLI mutate with patch [setImplementationApprovedAt null, setStage implementation_approval], then re-run this step, so ELIGIBLE_STAGE becomes "implementation_approval", never "implementation" on a stale approval. Otherwise approval is still current.
-- Foreman mode: when FOREMAN == true and the staleness check returns to "implementation_approval", Execute Stage step 5 re-grants approval through its recorded --foreman path, so the run record shows the new grant.
+- Plan-change staleness check: if ELIGIBLE_STAGE is "implementation" and ACTIVE_RUN.implementationApprovedAt is non-null, compare it with the recordedAt of every artifacts[] entry whose producingStage is "trd_refine" or "beads_plan". If any is later, the approved plan has changed since approval: call RUN_INDEX_CLI mutate with patch [setImplementationApprovedAt null, setStage implementation_approval], then re-run this step, so ELIGIBLE_STAGE becomes "implementation_approval", never "implementation" on a stale approval.
+- Foreman mode: when FOREMAN == true and the staleness check returns to "implementation_approval", Execute Stage step 5 re-grants approval through its recorded Foreman-mode path, so the run record shows the new grant.
 
 #### Step 2.2: Dispatch to the Eligible Stage
 

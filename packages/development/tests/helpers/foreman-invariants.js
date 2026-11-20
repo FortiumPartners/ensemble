@@ -127,6 +127,21 @@ function checkNewFeature(doc) {
       `Entry Step ${n} (exclusivity) must carry no FOREMAN text`);
   }
 
+  // Amendment 1.0.2: a non-empty FOREMAN_TASK_TITLE enters the same mode as the flag, with the same grants
+  // and a run record that says which path was taken. CI and ENSEMBLE_NON_INTERACTIVE are not that signal.
+  v('envEntry', !!def && /FOREMAN_TASK_TITLE/.test(def) && /non-empty/.test(def),
+    'Entry Step 1 must also set FOREMAN from a non-empty FOREMAN_TASK_TITLE');
+  v('envEntry', !!def && /FOREMAN_SOURCE/.test(def) && /\bflag\b/.test(def) && /\benv\b/.test(def),
+    'Entry Step 1 must record FOREMAN_SOURCE as flag or env');
+  v('envEntry', !!def && /\bCI\b/.test(def) && /ENSEMBLE_NON_INTERACTIVE/.test(def) && /never imply/i.test(def),
+    'Entry Step 1 must say CI and ENSEMBLE_NON_INTERACTIVE never imply FOREMAN');
+  v('envEntry', !!grant && /FOREMAN_SOURCE is env/.test(grant)
+    && /implementation approval granted by Foreman dispatch \(FOREMAN_TASK_TITLE set; no human present\)/.test(grant),
+    'the implementation grant must record the env-entered detail when FOREMAN_SOURCE is env');
+  v('envEntry', !!pr && /FOREMAN_SOURCE is env/.test(pr)
+    && /PR approval granted by Foreman dispatch \(FOREMAN_TASK_TITLE set; no human present\)/.test(pr),
+    'the PR grant must record the env-entered detail when FOREMAN_SOURCE is env');
+
   // Guard: every step that asks a human also has a foreman branch.
   out.guard = [];
   for (const phase of doc.workflow.phases || []) {

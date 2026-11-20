@@ -1,7 +1,7 @@
 ---
 document_id: PRD-2026-1d3e0dd6
 label: prd-new-feature-foreman-flag
-version: 1.0.1
+version: 1.0.2
 status: Draft
 date: 2026-10-15
 scale_depth: STANDARD
@@ -167,3 +167,4 @@ design_readiness_score: null
 |------|---------|---------|
 | 2026-10-15 | 1.0.0 | Initial PRD |
 | 2026-10-15 | 1.0.1 | Refinement: AC-002-5 (stage output accepted without a prompt) and AC-002-6 (`FOREMAN_*` contract untouched) |
+| 2026-11-19 | 1.0.2 | Amendment: `new-feature` also enters Foreman mode when `FOREMAN_TASK_TITLE` is non-empty and the flag is absent, because a Foreman dispatch has no human to pass the flag. Same grants as `--foreman`, nothing more; `CI=true` and `ENSEMBLE_NON_INTERACTIVE=1` never imply it; the recorded approval detail names the entry path (`FOREMAN_SOURCE`: flag, env or none). REQ-001 to REQ-011 unchanged; "a run without the flag behaves exactly as before" now means a run with neither the flag nor `FOREMAN_TASK_TITLE` |

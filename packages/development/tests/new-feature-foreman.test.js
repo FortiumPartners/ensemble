@@ -38,6 +38,7 @@ describe('new-feature --foreman', () => {
     ['event', 'REQ-007: an event payload is never auto-approved'],
     ['invariants', 'REQ-009: exclusivity, read-only --status and no-retry rules are untouched'],
     ['guard', 'REQ-009/011: every step that asks a human has a foreman branch'],
+    ['envEntry', 'amendment 1.0.2: a non-empty FOREMAN_TASK_TITLE enters the same mode and the run record says so'],
   ])('%s -- %s', (group) => {
     expect(result[group]).toEqual([]);
   });
@@ -130,6 +131,20 @@ describe('new-feature --foreman', () => {
       const m = clone(doc);
       step(m, 'Entry Point Resolution', 2).actions.push('When FOREMAN is true, ignore RUN_ALREADY_ACTIVE.');
       expect(checkNewFeature(m).invariants.length).toBeGreaterThan(0);
+    });
+
+    test('a definition that ignores FOREMAN_TASK_TITLE is caught', () => {
+      const m = clone(doc);
+      const s = step(m, 'Entry Point Resolution', 1);
+      s.actions = s.actions.map((a) => (/FOREMAN =/.test(a) ? a.replace(/FOREMAN_TASK_TITLE/g, 'FOREMAN_NAME') : a));
+      expect(checkNewFeature(m).envEntry.length).toBeGreaterThan(0);
+    });
+
+    test.each(['implementation approval', 'PR approval'])('the %s grant that records only the flag path is caught', (what) => {
+      const m = clone(doc);
+      const s = step(m, 'Execute Stage', what === 'PR approval' ? 6 : 5);
+      s.actions = s.actions.map((a) => a.replace(/ or, when FOREMAN_SOURCE is env, "[^"]*"/, ''));
+      expect(checkNewFeature(m).envEntry.length).toBeGreaterThan(0);
     });
   });
 

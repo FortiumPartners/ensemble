@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A Foreman dispatch that passes no `--foreman` flag is treated as a Foreman dispatch (`packages/development`, `packages/git`).** `new-feature`, `fix-issue`, `create-trd`, `refine-trd`, `implement-trd-tasks`, `analyze-complexity` and `pr-merge` entered Foreman mode only when `--foreman` was in the arguments, so a worker dispatched with `FOREMAN_TASK_TITLE` set and no flag could stop on a question or an approval gate with nobody to answer. A non-empty `FOREMAN_TASK_TITLE` now enters the same mode and grants exactly what the flag grants, nothing more: every hard stop is unchanged, and `CI=true` and `ENSEMBLE_NON_INTERACTIVE=1` never imply it. `new-feature` records the entry path as `FOREMAN_SOURCE` (`flag`, `env` or `none`), and its auto-granted implementation and PR approvals say "granted by Foreman dispatch (FOREMAN_TASK_TITLE set; no human present)" when the environment alone entered the mode, against "granted by --foreman policy (no human present)" for the flag. Each skill states the rule in one line and the prompt word budgets are unchanged. Skills that name `--foreman` and are not listed here keep their behaviour; see `docs/reports/foreman-ensemble-skills-detect-foreman-env-v3/FIX_REPORT.md` for why.
+
 ## [10.0.0] - 2026-11-17
 
 This release is major because `/ensemble:implement-trd-beads` is retired in favour of `/ensemble:implement-trd-tasks` with no alias (TRD-020, below); update any script or habit that calls the old name. It also carries the skills evaluation harness, the configurable tracker backend (kata), the full-bundle PR merge, and the fixes listed below.

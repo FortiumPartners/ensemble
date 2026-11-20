@@ -1,6 +1,6 @@
 ### Phase 1: Entry Point Resolution
 
-Determine, from description/issue/no-arg/--status/--abandon, whether this invocation starts a new run, resumes an existing one, reports its status read-only, or abandons it.
+Decide from description/issue/--status/--abandon: start, resume, report (read-only), or abandon.
 
 #### Step 1.1: Start New Run or Resume Active Run
 

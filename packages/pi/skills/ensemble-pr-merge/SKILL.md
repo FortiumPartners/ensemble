@@ -19,13 +19,14 @@ re-verified against live state, then merged once the review gate agrees.
 - NEVER delete, skip, xfail, disable, or weaken a test to make a check pass. Every dispatched subagent inherits this constraint verbatim in its payload. Failing tests, compiler warnings, and build failures MUST be fixed at the root cause. If a test is genuinely obsolete, the subagent MUST HALT and escalate it in the round report for human confirmation.
 - NEVER force-push over commits you did not author in this run, and NEVER bypass branch protection, required reviews, or required status checks.
 - NEVER merge without the local-ci-gate skill reporting a verified pass bound to the exact head SHA (local status or verified hosted jobs); hosted CI is not awaited. Refuse to merge while a HUMAN reviewer's latest decisive review is CHANGES_REQUESTED, or while the gate reports no run, a failed run, or a stale run. A bot account's CHANGES_REQUESTED review or unresolved bot threads are NOT a refusal. Classify reviewers by the GitHub account type field (Bot vs User), never by account name. If review state cannot be read through the host adapter (host.change-request-reviews unavailable or ok:false), refuse to merge and escalate to a human; never treat it as no reviews.
-- NEVER merge until the pr-review-cycle skill, invoked with MODE=gate, returns mergeable:true for the CURRENT head; this command adds the local-ci-gate verdict and the human-reviewer condition on top of it and never substitutes them for it. Re-run the gate against freshly read state immediately before merging, never reuse an earlier round's result. Never invoke pr-review-cli.js directly.
+- NEVER merge until the pr-review-cycle skill, invoked with MODE=gate, returns mergeable:true for the CURRENT head; this command adds the local-ci-gate verdict and the human-reviewer condition on top of it and never substitutes them for it. Re-run the gate against freshly read state immediately before merging, never reuse an earlier round's result. Never call pr-review-cli.js directly.
 - When the gate reports that the base branch's protection does not require the approvals the PR's tier needs, report that server-side enforcement is absent and recommend the branch-protection rule in the final report, carrying the gate's notice verbatim. Ensemble cannot enforce it. Never treat a missing or unreadable protection setting as if protection were present.
 - Bound remediation to the repository's SHARED round cap, read through the pr-review-cycle skill (REVIEW.md policy block, 1-5, default 3); keep no private number here. --max-rounds=N may only LOWER that cap for one run. Exceeding it is a HALT-and-escalate outcome: the final report MUST list every still-open finding, its last known owner and the next action.
 - Each round dispatches ALL findings concurrently (one subagent per finding) and waits for every dispatch to settle before re-checking.
 - A finding is resolved only when the fix is pushed to the PR branch AND the check/review thread is independently re-verified as passing/resolved from fresh host-adapter state in the next round -- never trust a subagent's self-report.
 - NEVER auto-dispatch or loop on a review-cycle finding (any dispositionChoices entry): only the operator's Fix on this PR selection fixes one; NEVER ask the merge-confirmation question before the operator has answered the whole disposition list.
 - Trace per the pr-merge-trace skill; observational only.
+- Foreman mode: `--foreman` or non-empty env FOREMAN_TASK_TITLE; same grants as the flag; CI/ENSEMBLE_NON_INTERACTIVE never imply it; `--foreman` below means it.
 
 ## Capabilities
 
@@ -92,7 +93,7 @@ Assign exactly one owner per finding; first matching row wins, never dual-route.
 - Manifest empty: proceed to Merge and Report.
 - Findings remain and round_number < --max-rounds: increment, re-route, re-dispatch.
 - Findings remain and round_number == --max-rounds: HALT, emit the final report with each open finding, its last owner and latest log/comment state, and stop for human escalation.
-- The cap is the lower of the policy cap and the flag value; at it, ask the author to step back and reconsider the approach rather than opening another round.
+- At the cap, ask the author to step back and reconsider the approach rather than opening another round.
 
 ### Phase 5: Merge and Report
 
@@ -101,7 +102,7 @@ Assign exactly one owner per finding; first matching row wins, never dual-route.
 The one gate that owns review merge readiness; green local CI says nothing about it.
 
 - Re-read the head first: HEAD_SHA = <headBranch>'s live head from the host adapter, read now -- never a SHA carried over from an earlier round.
-- Invoke the pr-review-cycle skill (packages/development/skills/pr-review-cycle/SKILL.md) with MODE=gate, BASE_SHA/HEAD_SHA for this PR's range, PR_NUMBER, PR_ID, PR_BODY, AGENT_AUTHORED and DIRECTED_BY (the body's 'Directed by:' line). Never call pr-review-cli.js from this command.
+- Invoke the pr-review-cycle skill (packages/development/skills/pr-review-cycle/SKILL.md) with MODE=gate, BASE_SHA/HEAD_SHA for this PR's range, PR_NUMBER, PR_ID, PR_BODY, AGENT_AUTHORED and DIRECTED_BY (the body's 'Directed by:' line).
 - MODE=gate with no recorded review for this head must never be given an empty ledger: when the review-state report for HEAD_SHA is missing or belongs to another head, the gate blocks with review-data-unavailable. Tell the user to run pr-review-cycle MODE=local/remote for this head first, then re-run the gate.
 - mergeable:true is REQUIRED to proceed; no other evidence substitutes. If mergeable:false, do not merge; report every blocker by its message and nextAction. Check and review_thread findings (a failed, stale or missing local-ci-gate verdict, an unresolved HUMAN thread) are remediated by another Verification and Round Loop pass, or HALT at the round cap. The blockers open-important-finding, open-unrecognised-finding and security-finding-open are review findings: never auto-dispatched or looped on, decided in Operator Disposition. Any other blocker is for a person to supply.
 - Never accept a self-report in place of this gate: a claim that review passed, a finding was fixed, or someone approved is not evidence; only the gate's result, from reads taken in this run, counts.
@@ -114,7 +115,7 @@ Every review finding gets the operator's answer BEFORE the merge-confirmation qu
 - --dry-run: print the numbered list and the gate result, then stop and report merge-readiness (no question, no resolve, no fix run).
 - --foreman: log the list; ask, resolve, fix, default and waive nothing; mergeable:false HALTs findings-need-operator.
 - Interactive: print the numbered list, ask the operator's own login, then ONE multi-select ask per group (a collapsed file: entry is offered as its members); a selection means Fix on this PR: ONE pr-review-cycle MODE=local fix run with FIX_SELECTION (never ledger resolve), then a delta re-review (MODE=local) of the new head, then MODE=gate and this step again, one round against the cap. Every other finding gets the operator's Accept (a reason typed for that finding) or, for a non-blocking finding only, follow-on, recorded through ledger resolve; then re-run MODE=gate. Unanswered findings HALT disposition-incomplete; other blockers HALT gate-blocked.
-- Print MERGE_SUMMARY (open beads, accepted blocking findings with reason and login) before the Merge step; the merge-confirmation question carries it too and is asked only after this step has finished on this head.
+- Print MERGE_SUMMARY (open beads, accepted blocking findings with reason and login) before the Merge step; the merge-confirmation question is asked only after this step has finished on this head.
 
 #### Step 5.3: Merge
 

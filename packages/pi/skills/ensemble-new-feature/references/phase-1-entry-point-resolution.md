@@ -10,7 +10,7 @@ Start, resume, report, or reject from `idea`/`path`/`status`; produces ACTIVE_RU
 - Invocation arguments: $ARGUMENTS -- read `idea`, `path`, `status` and flags such as `--foreman` from it.
 - If the invocation includes `--skip-refine` or any equivalent flag that would bypass prd_refine or trd_refine: reject with 'Both PRD and TRD refinement are mandatory in new-feature's fixed stage order; to skip orchestration but not refinement, run the standalone /ensemble-refine-prd or /ensemble-refine-trd commands (unmodified by new-feature).' and HALT. No run is created or mutated.
 - This workflow is the internal implementation behind the canonical front door `/ensemble-feature`; direct invocation behaves identically.
-- Foreman mode: FOREMAN = true when `--foreman` is present, else false. `--foreman` is a supported flag, never a `--skip-refine` equivalent (it bypasses no refinement stage). Nothing infers FOREMAN from the environment.
+- Foreman mode: FOREMAN = true when `--foreman` is present or env FOREMAN_TASK_TITLE is non-empty (FOREMAN_SOURCE = flag|env, flag wins; none when false); same grants as the flag; CI/ENSEMBLE_NON_INTERACTIVE never imply it. `--foreman` is a supported flag, never a `--skip-refine` equivalent (it bypasses no refinement stage).
 
 #### Step 1.2: Idea Input -- Start a New Run
 
@@ -60,5 +60,5 @@ Checked before Step 4; when `abandon` is provided, Step 4's resume/status branch
 - If `abandon` is provided (empty string counts; only an omitted parameter skips this step): call RUN_INDEX_CLI find-active.
 - Not found: print 'No active run exists for this project; nothing to abandon.' and stop -- no mutate/abandon call is made, no state is touched.
 - Found: ask the user for explicit confirmation (ask), naming the run's identifier and current stage, before calling RUN_INDEX_CLI abandon. Declined or no response: make no mutate/abandon call; the run is left untouched.
-- Foreman mode: when FOREMAN == true do not ask for confirmation (no question, no prompt) -- `--abandon` with `--foreman` is the explicit instruction: call RUN_INDEX_CLI abandon with runId and reason directly and print the run's identifier and the stage it was abandoned at.
+- Foreman mode: when FOREMAN == true do not ask for confirmation (no question, no prompt) -- `--abandon` in Foreman mode is the explicit instruction: call RUN_INDEX_CLI abandon with runId and reason directly and print the run's identifier and the stage it was abandoned at.
 - On explicit confirmation: call RUN_INDEX_CLI abandon with runId and reason, where `reason` is the `abandon` parameter's text (empty string if none). This sets status to "abandoned" and releases active.lock; artifacts and history are retained for a later `--status`.

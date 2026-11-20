@@ -4,7 +4,7 @@ label: trd-new-feature-foreman-flag
 kind: trd
 prd_reference: PRD-2026-1d3e0dd6
 prd_path: docs/PRD/PRD-2026-1d3e0dd6-new-feature-foreman-flag.md
-version: 1.0.1
+version: 1.0.2
 status: Draft
 date: 2026-10-15
 design_readiness_score: 4.4
@@ -34,7 +34,7 @@ Based on PRD: docs/PRD/PRD-2026-1d3e0dd6-new-feature-foreman-flag.md
 
 ## Domain Analysis
 
-- **`FOREMAN` variable:** true iff the `--foreman` argument is present. It is the only switch; nothing infers it from the environment.
+- **`FOREMAN` variable:** true iff the `--foreman` argument is present. It is the only switch; nothing infers it from the environment. *(Amended 1.0.2: also true when `FOREMAN_TASK_TITLE` is non-empty; `FOREMAN_SOURCE` records `flag`, `env` or `none`. See Changelog.)*
 - **Question inventory in `new-feature.yaml`** (every place a user is asked or a user decision is awaited today): Entry Step 4 retry confirmation; Entry Step 5 event-payload review; Entry Step 6 abandon confirmation; Phase 3 Step 2 accept/decline/edit of stage output; Phase 3 Step 5 implementation approval; Phase 3 Step 6 PR opt-in and PR approval.
 - **Decision under `--foreman` at each:** retry once, no prompt; event payload never auto-approved; abandon without confirmation; stage output auto-accepted; implementation approval auto-granted and recorded; PR opt-in and approval auto-granted and recorded.
 - **Hard stops unchanged:** `RUN_ALREADY_ACTIVE`, `--skip-refine` rejection, stage-skill hard HALTs, `--status` read-only, no in-invocation retry loop, the `prApprovedAt`/`implementationApprovedAt` store-persisted precondition.
@@ -343,3 +343,4 @@ Tasks TRD-001 through TRD-011 and their tests. Informational grouping only.
 |------|---------|---------|
 | 2026-10-15 | 1.0.0 | Initial TRD |
 | 2026-10-15 | 1.0.1 | Refinement: additive-only edit rule (existing suites pin exact sentences); front-door design reworked to extract the flag before validation and insert it after construction; TRD-001-TEST and TRD-008-TEST now run the existing suites unchanged |
+| 2026-11-19 | 1.0.2 | Amendment: `FOREMAN` is also true when the environment variable `FOREMAN_TASK_TITLE` is non-empty (flag wins in `FOREMAN_SOURCE`); same grants, nothing more; `CI` and `ENSEMBLE_NON_INTERACTIVE` never imply it. The implementation and PR approval details name the entry path ("granted by Foreman dispatch (FOREMAN_TASK_TITLE set; no human present)" when the environment alone entered the mode). Prompt-only change; no existing assertion is modified, and one invariant group (`envEntry`) covers the new path |

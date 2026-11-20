@@ -12,12 +12,11 @@ metadata:
 
 Chain create-prd, refine-prd, create-trd, refine-trd and bead planning
 (implement-trd-tasks --plan) into one resumable run. Each stage's skill
-executes in-session, never as a subprocess; the run index records the stage,
-its outcome, and the artifacts each stage produced.
+executes in-session, never as a subprocess.
 
 ## Constraints
 
-- Stage order is fixed and never reordered at runtime: prd_create -> prd_refine -> trd_create -> trd_refine -> beads_plan -> implementation_approval -> implementation -> pr_approval -> pr_create -> done. pr_approval/pr_create are only entered if a PR was requested; completion without a PR request is a valid terminal state.
+- Stage order is fixed, never reordered at runtime: prd_create -> prd_refine -> trd_create -> trd_refine -> beads_plan -> implementation_approval -> implementation -> pr_approval -> pr_create -> done. pr_approval/pr_create are only entered if a PR was requested; completion without a PR request is a valid terminal state.
 - Only the stage recorded as RunRecord.stage, with stageOutcome.kind not "success", is eligible to run. The checkpoint lives in the run index: every transition and artifact reference is recorded through RUN_INDEX_CLI, and active.lock enforces a single active run per project.
 - `--foreman` (FOREMAN == true) never bypasses RUN_ALREADY_ACTIVE, never makes `--status` anything but a read-only report, and never retries a failed stage more than once per invocation (Foreman owns any further retry).
 
@@ -31,7 +30,7 @@ Resolve RUN_INDEX_CLI (RELATIVE_PATH packages/development/lib/run-index-cli.js) 
 - **`path`** (string, optional): An indexed PRD or TRD artifact path to resume from (resolved via RUN_INDEX_CLI resolve-by-artifact; never globbed). An unindexed but readable PRD (frontmatter `document_id` matching `PRD-*`) is adopted as a new run's source via RUN_INDEX_CLI create-from-artifact, entering at prd_refine; any other unindexed path is rejected.
 - **`status`** (boolean, optional, default: `false`): Show the active/most-recent run's stage, outcome, and references without advancing it.
 - **`abandon`** (string, optional): Terminate the project's active/paused run after explicit confirmation; any given text is an optional reason recorded in the terminal history. If `idea` or `path` is also given, that takes precedence; omit `idea`/`path`/`status` for `abandon` to take effect.
-- **`foreman`** (boolean, optional, default: `false`): Foreman-native non-interactive mode. Forwards `--foreman` to every stage skill and replaces this command's own prompts (retry, implementation approval, PR approval, abandon) with recorded decisions.
+- **`foreman`** (boolean, optional, default: `false`): Foreman-native non-interactive mode, also entered by non-empty env FOREMAN_TASK_TITLE (step 1.1). Forwards `--foreman` to every stage skill and replaces this command's own prompts (retry, implementation approval, PR approval, abandon) with recorded decisions.
 
 ## Workflow
 
