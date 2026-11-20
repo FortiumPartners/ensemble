@@ -707,7 +707,11 @@ describe('bundleLibs against real packages directory', () => {
 
       let output: string;
       try {
-        output = execFileSync('node', [entryPath, 'resolve', '--json'], { encoding: 'utf-8', stdio: 'pipe' });
+        // A maintainer's own ~/.config/ensemble/toolchain.yaml must not reach this run: the vendored bundle
+        // ships no adapters, so a user-configured adapter name would fail resolve with UNKNOWN_ADAPTER.
+        // The path below does not exist, so there is no user config to read.
+        const env = { ...process.env, XDG_CONFIG_HOME: path.join(toolchainOutputRoot, 'no-user-config') };
+        output = execFileSync('node', [entryPath, 'resolve', '--json'], { encoding: 'utf-8', stdio: 'pipe', env });
       } catch (err) {
         const execErr = err as { stdout?: string; stderr?: string };
         output = (execErr.stdout ?? '') + (execErr.stderr ?? '');

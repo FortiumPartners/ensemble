@@ -318,9 +318,11 @@ describe('runResolveSdlc', () => {
   });
 
   test('TRD-037 AC-2: no env, no project toolchain config -> host resolves to the shipped default/detected github, workflow to git-town or plain-git, legacy fields untouched', () => {
+    // "No user config" has to hold on a maintainer's machine too: point the user config root at a path that
+    // does not exist, so a personal ~/.config/ensemble/toolchain.yaml cannot turn a source into 'user'.
     const out = runResolveSdlc(
       ['--git-town-exit-code', '0', '--remote-url', githubUrl],
-      {}
+      { XDG_CONFIG_HOME: path.join(__dirname, 'fixtures', 'no-user-config') }
     );
     expect(out.ok).toBe(true);
     expect(out.host.adapter).toBe('github');
