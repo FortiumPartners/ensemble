@@ -124,9 +124,10 @@ expected starting state before bindings/implementation exist.
 
 ## TRD commands
 
-`create-trd` and `implement-trd-tasks` take this path whenever `BDD_MODE.enabled`, which is the
-default. A repo opts out with `--no-bdd`, `ENSEMBLE_BDD=0`, or a TRD's `test_approach: standard`
-(checked in that order). When off, neither command mentions or runs Reqnroll.
+`create-trd` and `implement-trd-tasks` take this path whenever `BDD_MODE.enabled`: on in a
+repo with a .NET project, off without one. `--no-bdd`, `ENSEMBLE_BDD=0` or a TRD's
+`test_approach: standard` (checked in that order) turn it off; `--bdd` or `ENSEMBLE_BDD=1`
+turn it on in a repo without one. When off, neither command mentions or runs Reqnroll.
 
 - **create-trd:** every functional REQ-NNN needs at least 3 AC-NNN-M sub-items (happy path,
   edge, error); fewer is flagged as insufficient BDD coverage in the readiness scorecard.

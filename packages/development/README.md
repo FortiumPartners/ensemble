@@ -39,16 +39,17 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 ### Optional BDD (Reqnroll)
 
-BDD/Reqnroll stays **on by default**, exactly as before; a repo that does not use it can opt out. `/ensemble:create-trd` and `/ensemble:implement-trd-tasks` both ask `node trd-cli.js resolve-bdd` whether it is on, so they always agree. First match wins:
+BDD/Reqnroll is **on by default in a repo that has a .NET project** and **off in one that does not**, because the Reqnroll path is C#-only. `/ensemble:create-trd` and `/ensemble:implement-trd-tasks` both ask `node trd-cli.js resolve-bdd` whether it is on, so they always agree. First match wins:
 
 | Order | Source | Result |
 | --- | --- | --- |
 | 1 | `--bdd` / `--no-bdd` (`create-trd` only) | on / off |
 | 2 | `ENSEMBLE_BDD` environment variable | `1`, `true`, `on`, `yes` / `0`, `false`, `off`, `no` |
 | 3 | `test_approach:` in the TRD frontmatter (`implement-trd-tasks` reads it; `create-trd` writes it unless the answer was only the default) | `bdd-reqnroll` / `standard` |
-| 4 | none of the above | **on** |
+| 4 | the repo: no `*.csproj` / `*.sln` found near the repo root | **off** (source `repo`) |
+| 5 | none of the above (a .NET repo, or no repo scan) | **on** |
 
-Nothing changes for a repo that uses Reqnroll: with nothing set, the commands behave as they always did. A repo that does not use it (a Playwright + xUnit repo, a Node or Rails repo) opts out once, by setting `ENSEMBLE_BDD=0` in the environment or passing `--no-bdd` to `create-trd`; either way the TRD records `test_approach: standard`, so `implement-trd-tasks` follows it. `create-trd` records `test_approach` only for an explicit choice (a flag or the environment variable), so a TRD written on the default carries none. `--bdd` or `ENSEMBLE_BDD=1` overrides a stamped `standard`. The stamp is read wherever the TRD puts its frontmatter, including under an H1 or an HTML comment. An unrecognised `ENSEMBLE_BDD` or `test_approach` value is ignored with a warning, whichever source then decides (BDD stays on if none does); the warning is always printed.
+Nothing changes for a repo that uses Reqnroll: with nothing set, the commands behave as they always did. A repo without a .NET project is off without any opt-out; `--bdd` or `ENSEMBLE_BDD=1` asks for Reqnroll there anyway. A repo that later gains a `.csproj` or `.sln` flips back to on, because the repo is read at resolve time and an implicit repo decision is never stamped into the TRD. A repo that has a .NET project but does not want Reqnroll opts out once, by setting `ENSEMBLE_BDD=0` in the environment or passing `--no-bdd` to `create-trd`; either way the TRD records `test_approach: standard`, so `implement-trd-tasks` follows it. `create-trd` records `test_approach` only for an explicit choice (a flag or the environment variable), so a TRD written on a default — the repo-derived one or the .NET one — carries none. `--bdd` or `ENSEMBLE_BDD=1` overrides a stamped `standard`. The stamp is read wherever the TRD puts its frontmatter, including under an H1 or an HTML comment. An unrecognised `ENSEMBLE_BDD` or `test_approach` value is ignored with a warning, whichever source then decides (the repo default then decides); the warning is always printed.
 
 `implement-trd-tasks` asks about the TRD it is about to implement with `resolve-bdd --trd <path>`. A relative path is read as given and then from the repo root, and a path that cannot be read, or `--trd` with no path, is an `error` (exit 1, so the command HALTs) rather than a silent fall back to the default: BDD would otherwise run on for a TRD that opted out.
 

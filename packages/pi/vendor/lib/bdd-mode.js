@@ -3,24 +3,27 @@
 /**
  * bdd-mode.js — decide whether a TRD run uses the Reqnroll/BDD test path.
  *
- * BDD stays ON by default, exactly as before this was configurable; this only gives a repo a way to
- * opt out (a Playwright + xUnit repo, a Node or Rails repo). `create-trd` and `implement-trd-tasks`
- * both call `trd-cli resolve-bdd`, which wraps `resolveBdd` below, so the two commands always agree.
- * First match wins:
+ * BDD is ON by default only in a repo that has a .NET project, because the Reqnroll path this selects is
+ * C#-only; in any other repo it is off, and `--bdd` or `ENSEMBLE_BDD=1` opts back in. `create-trd` and
+ * `implement-trd-tasks` both call `trd-cli resolve-bdd`, which wraps `resolveBdd` below, so the two
+ * commands always agree. First match wins:
  *
  *   1. `flag`     — `--bdd` / `--no-bdd` (create-trd only; the CLI maps them to 'bdd' | 'no-bdd')
  *   2. `env`      — ENSEMBLE_BDD = 1|true|on|yes (on) or 0|false|off|no (off)
  *   3. `trd`      — the TRD's `test_approach` frontmatter (`bdd-reqnroll` | `standard`), which
  *                   create-trd writes when the choice was explicit (flag or env) so the TRD stays
  *                   self-describing and implement-trd-tasks honours an opt-out without the env var
- *   4. `default`  — on
+ *   4. `repo`     — the repo has no .NET project, so the C#-only Reqnroll path is off; the caller
+ *                   reports what it found as `repo: { dotnet: false }`
+ *   5. `default`  — on, for a .NET repo and for a caller that reported no repo at all
  *
  * Whichever source decides, nothing found on the way is dropped: an unrecognised ENSEMBLE_BDD or
  * `test_approach` value (ignored) and a TRD that cannot be read (its stamp was not consulted) are each
  * reported as a warning. `trd-cli resolve-bdd` goes further for an explicit `--trd` that cannot be read
  * and makes it an error.
  *
- * Pure and injectable (`env`) so tests never touch process state.
+ * Pure and injectable (`env`, `trdPath`, `repo`) so tests never touch process state: this module
+ * never looks at a repo itself, the caller reports what it found (`repo: { dotnet }`).
  */
 
 const fs = require('fs');
@@ -31,6 +34,11 @@ const ENV_VAR = 'ENSEMBLE_BDD';
 const STAMP_KEY = 'test_approach';
 const STAMP_BDD = 'bdd-reqnroll';
 const STAMP_STANDARD = 'standard';
+
+/** Source name for the repo-derived default: no .NET project, so no Reqnroll. */
+const REPO_SOURCE = 'repo';
+/** Evidence recorded for the repo-derived default. */
+const REPO_EVIDENCE = 'no .csproj/.sln found';
 
 const ENV_ON = new Set(['1', 'true', 'on', 'yes']);
 const ENV_OFF = new Set(['0', 'false', 'off', 'no']);
@@ -77,7 +85,12 @@ function decide(enabled, source, evidence, warnings) {
   if (evidence) out.evidence = evidence;
   if (warnings.length) out.warning = warnings.join('\n');
   // implement-trd-tasks has no --no-bdd flag, so the hint names the one opt-out both commands share.
-  const where = source === 'default' ? 'default; opt out with ENSEMBLE_BDD=0, or --no-bdd on create-trd' : source;
+  // The repo-derived off is a default, not a choice, so it says why it is off and how to opt back in.
+  const where = source === 'default'
+    ? 'default; opt out with ENSEMBLE_BDD=0, or --no-bdd on create-trd'
+    : source === REPO_SOURCE
+      ? `${REPO_SOURCE}; no .NET project found; opt in with --bdd or ENSEMBLE_BDD=1`
+      : source;
   out.message = `${warnings.map((w) => `Warning: ${w}\n`).join('')}Test approach: ${enabled ? 'BDD (Reqnroll)' : 'standard'} [${where}]`;
   return out;
 }
@@ -87,11 +100,14 @@ function decide(enabled, source, evidence, warnings) {
  * @param {'bdd'|'no-bdd'} [opts.flag]
  * @param {NodeJS.ProcessEnv} [opts.env]
  * @param {string} [opts.trdPath]   consult this TRD's `test_approach`
- * @returns {{enabled:boolean, source:'flag'|'env'|'trd'|'default', evidence?:string, warning?:string, message:string}}
+ * @param {{dotnet?: boolean}} [opts.repo] what the caller found in the repo. Consulted only when nothing
+ *   above decided: `dotnet: false` turns BDD off with source `repo`; `true`, or no `repo` at all, keeps the
+ *   historical default of on.
+ * @returns {{enabled:boolean, source:'flag'|'env'|'trd'|'repo'|'default', evidence?:string, warning?:string, message:string}}
  *   `warning` holds one line per warning
  */
 function resolveBdd(opts = {}) {
-  const { flag, env = process.env, trdPath } = opts;
+  const { flag, env = process.env, trdPath, repo } = opts;
   const warnings = [];
 
   // Every input is checked and every problem reported before precedence picks the winner, so a warning is
@@ -116,7 +132,10 @@ function resolveBdd(opts = {}) {
   if (flag === 'bdd' || flag === 'no-bdd') return decide(flag === 'bdd', 'flag', undefined, warnings);
   if (envValue !== null) return decide(envValue, 'env', undefined, warnings);
   if (stamp.value !== null) return decide(stamp.value, 'trd', where, warnings);
+  // Nothing explicit was chosen. A repo with no .NET project cannot run the C#-only Reqnroll path at
+  // all, so BDD is off there; the explicit sources above still win, so --bdd or ENSEMBLE_BDD=1 opts in.
+  if (repo && repo.dotnet === false) return decide(false, REPO_SOURCE, REPO_EVIDENCE, warnings);
   return decide(true, 'default', undefined, warnings);
 }
 
-module.exports = { resolveBdd, ENV_VAR, STAMP_KEY, STAMP_BDD, STAMP_STANDARD };
+module.exports = { resolveBdd, ENV_VAR, STAMP_KEY, STAMP_BDD, STAMP_STANDARD, REPO_SOURCE };

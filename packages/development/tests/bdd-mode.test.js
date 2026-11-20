@@ -2,8 +2,9 @@
 
 /**
  * Tests for lib/bdd-mode.js: the one place that decides whether the TRD commands use the Reqnroll/BDD
- * path. BDD stays on by default (what the commands did before it was configurable); these are the ways
- * to opt out. Precedence is flag > ENSEMBLE_BDD > TRD `test_approach` > default (on).
+ * path. BDD is on by default only where the C#-only Reqnroll path can run, i.e. a repo with a .NET
+ * project; these are the ways to opt out, and the repo verdict is one of them. Precedence is flag >
+ * ENSEMBLE_BDD > TRD `test_approach` > repo has no .NET project (off) > default (on).
  */
 
 const fs = require('fs');
@@ -14,6 +15,8 @@ const bddMode = require('../lib/bdd-mode');
 const { resolveBdd } = bddMode;
 
 const DEFAULT_MESSAGE = 'Test approach: BDD (Reqnroll) [default; opt out with ENSEMBLE_BDD=0, or --no-bdd on create-trd]';
+const REPO_MESSAGE = 'Test approach: standard [repo; no .NET project found; opt in with --bdd or ENSEMBLE_BDD=1]';
+const REPO_EVIDENCE = 'no .csproj/.sln found';
 
 const roots = [];
 function tmp() {
@@ -36,22 +39,36 @@ afterAll(() => {
   for (const r of roots) fs.rmSync(r, { recursive: true, force: true });
 });
 
-describe('the default is unchanged: BDD is on', () => {
-  test('with nothing set, it is on, and the message says how to opt out', () => {
+describe('the default depends on whether the repo can run the C#-only Reqnroll path', () => {
+  test('a .NET repo with nothing set is on, and the message says how to opt out', () => {
+    expect(resolveBdd({ env: {}, repo: { dotnet: true } })).toEqual({ enabled: true, source: 'default', message: DEFAULT_MESSAGE });
+  });
+
+  test('a repo with no .NET project is off, and the message says how to opt in', () => {
+    expect(resolveBdd({ env: {}, repo: { dotnet: false } })).toEqual({
+      enabled: false,
+      source: 'repo',
+      evidence: REPO_EVIDENCE,
+      message: REPO_MESSAGE,
+    });
+  });
+
+  test('a caller that reports nothing keeps the historical default of on', () => {
     expect(resolveBdd({ env: {} })).toEqual({ enabled: true, source: 'default', message: DEFAULT_MESSAGE });
   });
 
-  test('it does not depend on what the repo contains: a repo with no Reqnroll in it is still on', () => {
+  test('the verdict comes only from what the caller reports: this module still inspects no repo', () => {
+    expect(bddMode.detectReqnroll).toBeUndefined();
+    expect(bddMode.hasDotnetProject).toBeUndefined();
+    // `repoRoot` was never an input, so passing one changes nothing: the fallback is still on.
     expect(resolveBdd({ env: {}, repoRoot: tmp() })).toMatchObject({ enabled: true, source: 'default' });
   });
 
-  test('there is no repo detection left to get wrong', () => {
-    expect(bddMode.detectReqnroll).toBeUndefined();
-  });
-
-  test('an unstamped TRD, such as one written before this was configurable, is on', () => {
+  test('an unstamped TRD, such as one written before this was configurable, follows the repo', () => {
     const root = tmp();
-    expect(resolveBdd({ env: {}, trdPath: trdWith(root) })).toMatchObject({ enabled: true, source: 'default' });
+    const trd = trdWith(root);
+    expect(resolveBdd({ env: {}, trdPath: trd, repo: { dotnet: true } })).toMatchObject({ enabled: true, source: 'default' });
+    expect(resolveBdd({ env: {}, trdPath: trd, repo: { dotnet: false } })).toMatchObject({ enabled: false, source: 'repo' });
   });
 });
 
@@ -59,10 +76,11 @@ describe('opting out', () => {
   test.each([
     ['bdd', true],
     ['no-bdd', false],
-  ])('flag %s beats env and the TRD stamp', (flag, enabled) => {
+  ])('flag %s beats env, the TRD stamp and the repo verdict', (flag, enabled) => {
     const trd = trdWith(tmp(), enabled ? 'standard' : 'bdd-reqnroll');
     const env = { ENSEMBLE_BDD: enabled ? 'off' : 'on' };
-    expect(resolveBdd({ flag, env, trdPath: trd })).toMatchObject({ enabled, source: 'flag' });
+    // The flag wins whichever way the repo leans, so a TS repo can opt in and a .NET repo opt out.
+    expect(resolveBdd({ flag, env, trdPath: trd, repo: { dotnet: !enabled } })).toMatchObject({ enabled, source: 'flag' });
   });
 
   test.each([
@@ -71,6 +89,12 @@ describe('opting out', () => {
   ])('env ENSEMBLE_BDD=%j -> %s, and beats the TRD stamp', (value, enabled) => {
     const trd = trdWith(tmp(), enabled ? 'standard' : 'bdd-reqnroll');
     expect(resolveBdd({ env: { ENSEMBLE_BDD: value }, trdPath: trd })).toMatchObject({ enabled, source: 'env' });
+  });
+
+  test.each([
+    ['1', true], ['off', false],
+  ])('env ENSEMBLE_BDD=%j beats the repo verdict whichever way the repo leans', (value, enabled) => {
+    expect(resolveBdd({ env: { ENSEMBLE_BDD: value }, repo: { dotnet: !enabled } })).toMatchObject({ enabled, source: 'env' });
   });
 
   test.each([
@@ -86,6 +110,14 @@ describe('opting out', () => {
   test('reads the stamp from a CRLF TRD (this repo\'s TRDs are often Windows-authored)', () => {
     const trd = write(tmp(), 'docs/TRD/crlf.md', '---\r\ndocument_id: TRD-2026-bbbbbbbb\r\ntest_approach: standard\r\n---\r\n\r\n# TRD\r\n');
     expect(resolveBdd({ env: {}, trdPath: trd })).toMatchObject({ enabled: false, source: 'trd' });
+  });
+
+  test.each([
+    ['bdd-reqnroll', true],
+    ['standard', false],
+  ])('stamp %s beats the repo verdict whichever way the repo leans', (stamp, enabled) => {
+    const trd = trdWith(tmp(), stamp);
+    expect(resolveBdd({ env: {}, trdPath: trd, repo: { dotnet: !enabled } })).toMatchObject({ enabled, source: 'trd' });
   });
 });
 

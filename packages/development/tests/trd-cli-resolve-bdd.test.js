@@ -2,7 +2,8 @@
 
 /**
  * Tests for `trd-cli resolve-bdd` (lib/trd-cli.js), the subcommand create-trd and
- * implement-trd-tasks run to learn whether the Reqnroll/BDD path is on. It is on unless opted out.
+ * implement-trd-tasks run to learn whether the Reqnroll/BDD path is on. With nothing
+ * explicit set it follows the repo: on where a .NET project can run it, off elsewhere.
  */
 
 const fs = require('fs');
@@ -14,6 +15,7 @@ const { runResolveBdd } = require('../lib/trd-cli');
 
 const CLI = path.join(__dirname, '..', 'lib', 'trd-cli.js');
 const DEFAULT_MESSAGE = 'Test approach: BDD (Reqnroll) [default; opt out with ENSEMBLE_BDD=0, or --no-bdd on create-trd]';
+const REPO_MESSAGE = 'Test approach: standard [repo; no .NET project found; opt in with --bdd or ENSEMBLE_BDD=1]';
 
 const roots = [];
 function tmp() {
@@ -36,6 +38,23 @@ function cli(args, env, cwd) {
   const res = spawnSync('node', [CLI, 'resolve-bdd', ...args], { encoding: 'utf8', env: cleanEnv(env), cwd });
   return { status: res.status, json: JSON.parse(res.stdout.trim()) };
 }
+// A repo the CLI can inspect: a git repo, so `git rev-parse --show-toplevel` finds it.
+function repoDir({ dotnet = false } = {}) {
+  const root = tmp();
+  spawnSync('git', ['init', '-q'], { cwd: root });
+  if (dotnet) fs.writeFileSync(path.join(root, 'App.csproj'), '<Project />');
+  return root;
+}
+// The handler resolves the repo it sits in, so a test that cares about the repo moves there.
+function inRepo(dir, fn) {
+  const before = process.cwd();
+  process.chdir(dir);
+  try {
+    return fn();
+  } finally {
+    process.chdir(before);
+  }
+}
 
 afterAll(() => {
   for (const r of roots) fs.rmSync(r, { recursive: true, force: true });
@@ -53,11 +72,82 @@ describe('runResolveBdd (handler)', () => {
 
   test('reads ENSEMBLE_BDD from the env it is given, not from process.env', () => {
     expect(runResolveBdd([], { ENSEMBLE_BDD: 'off' })).toMatchObject({ enabled: false, source: 'env' });
-    expect(runResolveBdd([], {})).toMatchObject({ enabled: true, source: 'default' });
+    expect(inRepo(repoDir({ dotnet: true }), () => runResolveBdd([], {}))).toMatchObject({
+      enabled: true,
+      source: 'default',
+    });
   });
 
-  test('with nothing set it is on (unchanged), and the message says how to opt out', () => {
-    expect(runResolveBdd([], {})).toEqual({ ok: true, enabled: true, source: 'default', message: DEFAULT_MESSAGE });
+  test('with nothing set in a repo with a .NET project it is on (unchanged), and the message says how to opt out', () => {
+    expect(inRepo(repoDir({ dotnet: true }), () => runResolveBdd([], {}))).toEqual({
+      ok: true,
+      enabled: true,
+      source: 'default',
+      message: DEFAULT_MESSAGE,
+    });
+  });
+
+  test('with nothing set in a repo with no .NET project it is off, and says how to ask for it', () => {
+    expect(inRepo(repoDir(), () => runResolveBdd([], {}))).toEqual({
+      ok: true,
+      enabled: false,
+      source: 'repo',
+      evidence: 'no .csproj/.sln found',
+      message: REPO_MESSAGE,
+    });
+  });
+
+  test('an explicit choice beats the repo, in either direction', () => {
+    const plain = repoDir();
+    const dotnet = repoDir({ dotnet: true });
+    expect(inRepo(plain, () => runResolveBdd(['--bdd'], {}))).toMatchObject({ enabled: true, source: 'flag' });
+    expect(inRepo(dotnet, () => runResolveBdd(['--no-bdd'], {}))).toMatchObject({ enabled: false, source: 'flag' });
+    expect(inRepo(plain, () => runResolveBdd([], { ENSEMBLE_BDD: '1' }))).toMatchObject({
+      enabled: true,
+      source: 'env',
+    });
+    expect(inRepo(dotnet, () => runResolveBdd([], { ENSEMBLE_BDD: '0' }))).toMatchObject({
+      enabled: false,
+      source: 'env',
+    });
+    expect(inRepo(plain, () => runResolveBdd(['--trd', trdWith('bdd-reqnroll')], {}))).toMatchObject({
+      enabled: true,
+      source: 'trd',
+    });
+    expect(inRepo(dotnet, () => runResolveBdd(['--trd', trdWith('standard')], {}))).toMatchObject({
+      enabled: false,
+      source: 'trd',
+    });
+  });
+
+  test('a .NET project below the first directory still counts as a .NET repo', () => {
+    const root = repoDir();
+    fs.mkdirSync(path.join(root, 'src', 'App'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src', 'App', 'App.csproj'), '<Project />');
+    expect(inRepo(root, () => runResolveBdd([], {}))).toMatchObject({
+      enabled: true,
+      source: 'default',
+    });
+  });
+
+  test('a .NET project under a directory named packages counts, and a .sln at the root counts', () => {
+    const monorepo = repoDir();
+    fs.mkdirSync(path.join(monorepo, 'packages', 'Billing'), { recursive: true });
+    fs.writeFileSync(path.join(monorepo, 'packages', 'Billing', 'Billing.csproj'), '<Project />');
+    expect(inRepo(monorepo, () => runResolveBdd([], {}))).toMatchObject({ enabled: true, source: 'default' });
+
+    const solution = repoDir();
+    fs.writeFileSync(path.join(solution, 'App.sln'), '');
+    expect(inRepo(solution, () => runResolveBdd([], {}))).toMatchObject({ enabled: true, source: 'default' });
+  });
+
+  test('project files under dependency, build-output and fixture directories, or too deep, do not make a .NET repo', () => {
+    const root = repoDir();
+    for (const dir of ['node_modules/x', 'obj', 'tests/fixtures/app', 'evals/skills/a/fixture', 'a/b/c/d/e']) {
+      fs.mkdirSync(path.join(root, dir), { recursive: true });
+      fs.writeFileSync(path.join(root, dir, 'Stray.csproj'), '<Project />');
+    }
+    expect(inRepo(root, () => runResolveBdd([], {}))).toMatchObject({ enabled: false, source: 'repo' });
   });
 
   test('--trd feeds the TRD stamp into the resolution, so an opt-out recorded by create-trd is honoured', () => {
@@ -68,9 +158,21 @@ describe('runResolveBdd (handler)', () => {
 
 describe('trd-cli resolve-bdd (process)', () => {
   test('prints one JSON object and exits 0', () => {
-    const { status, json } = cli([]);
+    const { status, json } = cli([], {}, repoDir({ dotnet: true }));
     expect(status).toBe(0);
     expect(json).toEqual({ ok: true, enabled: true, source: 'default', message: DEFAULT_MESSAGE });
+  });
+
+  test('in a repo with no .NET project it prints the off answer, and how to ask for it', () => {
+    const { status, json } = cli([], {}, repoDir());
+    expect(status).toBe(0);
+    expect(json).toEqual({
+      ok: true,
+      enabled: false,
+      source: 'repo',
+      evidence: 'no .csproj/.sln found',
+      message: REPO_MESSAGE,
+    });
   });
 
   test('ENSEMBLE_BDD in the process environment is honoured', () => {

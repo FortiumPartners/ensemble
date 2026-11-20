@@ -223,6 +223,63 @@ function repoRoot() {
   return process.cwd();
 }
 
+/** Directories never entered when looking for a .NET project: dependency, build-output and fixture trees. */
+const DOTNET_SCAN_SKIP = new Set([
+  'node_modules',
+  'bower_components',
+  'vendor',
+  'bin',
+  'obj',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  'fixtures',
+  'fixture',
+  'evals',
+]);
+/** The repo root plus this many directory levels below it are read. */
+const DOTNET_SCAN_MAX_DEPTH = 4;
+
+/**
+ * Does this repo hold a .NET project, i.e. a `*.csproj` or `*.sln` near the repo root? The
+ * common `src/App/App.csproj` layout is found without a solution file.
+ * Depth-bounded, glob-free and synchronous on purpose: `resolve-bdd` is a short, cheap
+ * call both commands make, `packages/core/lib/detect-framework.js` is async and glob-based
+ * (which this CLI cannot await), and an unbounded walk would descend `node_modules` and
+ * build output, where a checked-in or restored `.csproj` would turn BDD on in a non-.NET
+ * repo. Depth stops short of the deepest layouts on purpose: going deeper would pick up
+ * vendored or fixture project files (this repo's own `evals/skills/<name>/fixture` projects) and
+ * report a non-.NET repo as .NET. Read the result as "found", never as "absent".
+ * @param {string} root repo root
+ * @returns {boolean} true when a .NET project file is there
+ */
+function hasDotnetProject(root) {
+  if (!root) return false;
+  const isDotnetFile = (name) => /\.(csproj|sln)$/i.test(name);
+  const dirs = [root];
+  for (let depth = 0; depth < DOTNET_SCAN_MAX_DEPTH && dirs.length; depth += 1) {
+    const next = [];
+    for (const dir of dirs) {
+      let entries;
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const e of entries) {
+        if (e.isFile() && isDotnetFile(e.name)) return true;
+        if (!e.isDirectory()) continue;
+        if (e.name.startsWith('.') || DOTNET_SCAN_SKIP.has(e.name.toLowerCase())) continue;
+        next.push(path.join(dir, e.name));
+      }
+    }
+    dirs.length = 0;
+    dirs.push(...next);
+  }
+  return false;
+}
+
 /** Repo-root-relative forward-slash form of `p`; stays absolute if `p` lies outside the repo. */
 function toRepoRelative(p, root) {
   const real = (x) => {
@@ -807,7 +864,8 @@ function resolveTrdArg(given) {
  *   -> { ok:true, enabled, source, evidence?, warning?, message }
  *
  * Thin CLI adapter over bdd-mode.js's resolveBdd (precedence: flag, ENSEMBLE_BDD, the TRD's
- * `test_approach` frontmatter, on). BDD stays on by default; these are the ways to opt out. Run by both
+ * `test_approach` frontmatter, then the repo: a repo with no .NET project is off, since Reqnroll is
+ * C#-only). Explicit choices always win; otherwise BDD follows the repo. Run by both
  * `create-trd` and `implement-trd-tasks` so the two commands agree on whether Reqnroll is in play.
  * Reads ENSEMBLE_BDD from the `env` param rather than process.env directly, like runResolveSdlc.
  *
@@ -833,7 +891,7 @@ function runResolveBdd(argv, env) {
     if (flags.trd === '') throw new Error('--trd requires a TRD path');
     trdPath = resolveTrdArg(flags.trd);
   }
-  return { ok: true, ...resolveBdd({ flag, env: env || {}, trdPath }) };
+  return { ok: true, ...resolveBdd({ flag, env: env || {}, trdPath, repo: { dotnet: hasDotnetProject(repoRoot()) } }) };
 }
 
 /** Load all TRD paths for combined workstream helpers. */
@@ -1683,6 +1741,7 @@ module.exports = {
   runPrPlan,
   runResolveSdlc,
   runResolveBdd,
+  hasDotnetProject,
   runQuickstart,
   runValidateWorkstream,
   runCreateWorkstreamTrd,
