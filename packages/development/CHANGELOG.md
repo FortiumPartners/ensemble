@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `adapter-tracker-beads` `tracker.show` maps a bead that `br` prints without `labels` or `description` (`labels` defaults to `[]`, `description` is omitted) instead of failing with `BAD_OUTPUT`, which halted `beads-build-wave` preflight on such beads (br-3jddz).
 
+- `toolchain-cli run` prints a mapped capability's data as JSON (2-space indent) instead of `[object Object]`; a capability whose adapter has no `parse` block still prints the tool's raw stdout verbatim and the `--json` envelope is unchanged (reporter finding 10: `work-graph.ready`/`work-graph.plan`/`work-graph.graph-health` and `tracker.show` were unreadable without `--json`).
+
 ### Removed
 
 - the `refine-beads` command and skill (`commands/refine-beads.yaml`, `skills/ensemble-refine-beads`), their generated Pi and Codex copies, and their tests and default-equivalence fixture. The `beads-scope`, `beads-repair-plan` and `beads-refine-cli` libs are kept.

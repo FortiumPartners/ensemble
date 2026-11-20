@@ -163,7 +163,9 @@
  *   - Default (no `--json`): a human-readable table with columns `category`, `adapter`,
  *     `source`, one row per category, printed to stdout for `resolve`/`explain`; for
  *     `validate`, `ok` on success or one error per line (to stderr) on failure; for `run`, the
- *     capability's raw output on success (to stdout) or `<code>: <message>` on failure (to
+ *     capability's output on success (to stdout) -- the tool's raw stdout verbatim when the
+ *     capability's data is a string, JSON (2-space indent) when it is a mapped object -- or
+ *     `<code>: <message>` on failure (to
  *     stderr); for `preflight`, a one-line `preflight ok: runId=<id> categories=<list>` on
  *     success (to stdout) or `<code>: <message>` on failure (to stderr); for `confirm-status`/
  *     `confirm-record`, a one-line human summary of `data` on success (to stdout) or
@@ -1099,7 +1101,16 @@ function printResult(subcommand, json, result) {
 
   if (subcommand === 'run') {
     if (result.ok) {
-      process.stdout.write(String(result.data) + '\n');
+      // A capability whose adapter declares a `parse` block maps stdout to an OBJECT
+      // (`{data: mapped}` in `toolchain/runner.js`); one without a `parse` block passes the
+      // tool's raw stdout through as a STRING. `String(object)` printed `[object Object]`, so
+      // the human-readable path silently destroyed exactly the structured capabilities
+      // (`work-graph.ready`/`plan`/`graph-health`) that the skills consume without `--json`.
+      // Objects print as JSON -- the same data `--json` prints, indented -- strings unchanged.
+      process.stdout.write(
+        (typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)) +
+          '\n'
+      );
     } else {
       process.stderr.write(`${result.error.code}: ${result.error.message}\n`);
       if (Array.isArray(result.completedSideEffects)) {

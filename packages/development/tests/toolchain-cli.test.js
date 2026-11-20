@@ -1680,3 +1680,184 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
     });
   });
 });
+
+describe('run(): human-readable printResult() of a mapped OBJECT (reporter finding 10 [object Object])', () => {
+  /** Install a fixture TRACKER adapter (never a work-graph one: the work-graph `auto`
+   * resolver would select the shipped fallback adapter and this test must exercise the
+   * generic per-category `run` path, exactly like tracker) backed by the real stub binary
+   * written by `writeNoWorkGraphTrackerStub`, declaring one capability WITH a `parse` block
+   * (`tracker.show` -- the runner's `mapAndValidateOutput` returns `mapOutput`'s mapped
+   * OBJECT for it) and one WITHOUT (`tracker.list` -- the runner returns the tool's raw
+   * stdout STRING unchanged). This is the same two shapes the real
+   * `packages/development/skills/adapter-tracker-beads/adapter.yaml` produces for
+   * `work-graph.ready`/`work-graph.plan` (both have `parse` blocks) vs
+   * `tracker.sync`/`tracker.list` (both do not). */
+  function mkPrintShapeTrackerAdapter(projectRoot, adapterId, binPath) {
+    const skillDir = path.join(projectRoot, 'packages', 'fixture-pkg', 'skills', adapterId);
+    fs.mkdirSync(skillDir, { recursive: true });
+    const manifest = {
+      adapter: adapterId,
+      version: '1.0.0',
+      categories: ['tracker'],
+      contract: { tracker: '1.0' },
+      binaries: [binPath],
+      allowlist: [{ bin: binPath, sub: ['list', 'show'] }],
+      env: [],
+      health: [],
+      detect: [],
+      capabilities: {
+        'tracker.list': { run: [binPath, 'list'] },
+        'tracker.show': {
+          run: [binPath, 'show', '${id}'],
+          parse: {
+            format: 'json',
+            root: '$',
+            map: { id: '$.id', status: '$.status' },
+            statusMap: { open: 'open', in_progress: 'in_progress', closed: 'closed' }
+          }
+        }
+      }
+    };
+    fs.writeFileSync(path.join(skillDir, 'adapter.yaml'), yaml.dump(manifest));
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), `# ${adapterId}\n## Vocabulary\nstub\n`);
+  }
+
+  // The stub binary's own stdout for `show <id>` -- the full item object it was told to hold,
+  // and the exact shape `mapOutput` re-shapes with `map: { id, status }` into the mapped
+  // OBJECT printResult() receives as `result.data`.
+  const STUB_SHOW_ITEM = { id: 'wg-print-1', status: 'open', dependencies: [] };
+
+  function spawnRun(projectRoot, capability, extraArgv) {
+    return spawnSync('node', [CLI, 'run', capability].concat(extraArgv || []), {
+      cwd: projectRoot,
+      env: cleanSpawnEnv(),
+      encoding: 'utf8'
+    });
+  }
+
+  function mkPrintShapeProject() {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'toolchain-cli-print-shape-'));
+    const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'toolchain-cli-print-shape-bin-'));
+    const binPath = writeNoWorkGraphTrackerStub(binDir);
+    writeWorkGraphTrackerControl(binDir, [STUB_SHOW_ITEM]);
+    mkProjectConfig(projectRoot, { tracker: 'fixture-print-shape-tracker' });
+    mkPrintShapeTrackerAdapter(projectRoot, 'fixture-print-shape-tracker', binPath);
+    return { projectRoot, binDir, binPath };
+  }
+
+  test("capability WITH a parse block: run WITHOUT --json prints the mapped object as JSON, never '[object Object]'", () => {
+    const { projectRoot, binDir } = mkPrintShapeProject();
+    try {
+      const res = spawnRun(projectRoot, 'tracker.show', ['--arg', 'id=wg-print-1']);
+      expect(res.status).toBe(0);
+      expect(res.stdout).not.toContain('[object Object]');
+      // The task's required contract: the human-readable run output of an object-shaped
+      // result must itself be parseable JSON beginning with '{' or '['.
+      expect(res.stdout.trim().charAt(0)).toMatch(/[[{]/);
+      expect(JSON.parse(res.stdout)).toEqual({ id: 'wg-print-1', status: 'open' });
+      // Indented (multi-line) JSON, per the required 2-space-indent behaviour.
+      expect(res.stdout.split('\n').length).toBeGreaterThan(2);
+      expect(res.stdout.endsWith('\n')).toBe(true);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(binDir, { recursive: true, force: true });
+    }
+  });
+
+  test('capability WITHOUT a parse block: run WITHOUT --json still prints the tool raw stdout string verbatim (unchanged by the fix)', () => {
+    const { projectRoot, binDir, binPath } = mkPrintShapeProject();
+    try {
+      // The tool's own raw stdout, read straight from the stub binary, so this assertion is
+      // about "unchanged" rather than about this test's own expectations.
+      const rawToolStdout = execFileSync(binPath, ['list'], { encoding: 'utf8' });
+      const res = spawnRun(projectRoot, 'tracker.list');
+      expect(res.status).toBe(0);
+      expect(res.stdout).not.toContain('[object Object]');
+      expect(res.stdout).toBe(rawToolStdout + '\n');
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(binDir, { recursive: true, force: true });
+    }
+  });
+
+  test('--json output is unchanged by the fix (single-line JSON envelope on stdout)', () => {
+    const { projectRoot, binDir } = mkPrintShapeProject();
+    try {
+      const res = spawnRun(projectRoot, 'tracker.show', ['--arg', 'id=wg-print-1', '--json']);
+      expect(res.status).toBe(0);
+      expect(res.stdout.endsWith('\n')).toBe(true);
+      expect(res.stdout.trimEnd().includes('\n')).toBe(false);
+      const parsed = JSON.parse(res.stdout);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.data).toEqual({ id: 'wg-print-1', status: 'open' });
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+      fs.rmSync(binDir, { recursive: true, force: true });
+    }
+  });
+
+  describe('mutation-proof: the string/object branch in printResult()\'s run arm actually matters', () => {
+    test("reverting it to bare String(result.data) makes run WITHOUT --json print '[object Object]' again for a parse-block capability", async () => {
+      const mutantRoot = makeMutantToolchainRoot();
+      try {
+        // NOTE: this needle is the exact source expression of the `run` arm of
+        // printResult() in packages/development/lib/toolchain-cli.js. If that expression is
+        // reformatted, mutateAndRequire throws "needle not found" and this test fails loudly
+        // rather than silently passing.
+        const needle =
+          '(typeof result.data === \'string\' ? result.data : JSON.stringify(result.data, null, 2)) +';
+        const replacement = 'String(result.data) +';
+        const mutatedCli = mutateAndRequire(mutantRoot.cliPath, needle, replacement);
+
+        const { projectRoot, binDir } = mkPrintShapeProject();
+        try {
+          const { returned: code, stdout } = await captureStdoutAsync(() =>
+            mutatedCli.main(['run', 'tracker.show', '--arg', 'id=wg-print-1'], {
+              projectRoot,
+              env: { PATH: process.env.PATH }
+            })
+          );
+          // Pre-fix behaviour, which the real tests above disprove: exit 0 (the capability
+          // itself succeeded) but the only thing the operator sees is the unusable
+          // '[object Object]' the reporter saw from `run work-graph.plan`.
+          expect(code).toBe(0);
+          expect(stdout).toContain('[object Object]');
+          expect(() => JSON.parse(stdout)).toThrow();
+        } finally {
+          fs.rmSync(projectRoot, { recursive: true, force: true });
+          fs.rmSync(binDir, { recursive: true, force: true });
+        }
+      } finally {
+        mutantRoot.cleanup();
+      }
+    });
+
+    test("reverting it to JSON.stringify(result.data, null, 2) for EVERY result breaks the no-parse-block path (a raw stdout string gets double-encoded)", async () => {
+      const mutantRoot = makeMutantToolchainRoot();
+      try {
+        // NOTE: same source expression as above -- keep in sync with
+        // packages/development/lib/toolchain-cli.js printResult()'s `run` arm.
+        const needle =
+          "(typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)) +";
+        const replacement = 'JSON.stringify(result.data, null, 2) +';
+        const mutatedCli = mutateAndRequire(mutantRoot.cliPath, needle, replacement);
+
+        const { projectRoot, binDir } = mkPrintShapeProject();
+        try {
+          const { returned: code, stdout } = await captureStdoutAsync(() =>
+            mutatedCli.main(['run', 'tracker.list'], { projectRoot, env: { PATH: process.env.PATH } })
+          );
+          expect(code).toBe(0);
+          // A raw stdout string would be printed as a JSON QUOTED STRING instead of verbatim
+          // text -- what `tracker.sync`/`tracker.list` callers today consume as raw text.
+          expect(stdout.trim().startsWith('[{')).toBe(false);
+        } finally {
+          fs.rmSync(projectRoot, { recursive: true, force: true });
+          fs.rmSync(binDir, { recursive: true, force: true });
+        }
+      } finally {
+        mutantRoot.cleanup();
+      }
+    });
+  });
+});
