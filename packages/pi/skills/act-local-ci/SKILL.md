@@ -129,8 +129,8 @@ act -j build --matrix os:ubuntu-latest
 
 ```bash
 # .secrets (gitignored)
-GITHUB_TOKEN=ghp_xxxxxxxxxxxx
-NPM_TOKEN=npm_xxxxxxxxxxxx
+GITHUB_TOKEN=<github-token>
+NPM_TOKEN=<npm-token>
 ```
 
 ## Limitations

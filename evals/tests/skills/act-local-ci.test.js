@@ -68,9 +68,14 @@ describe(ID, () => {
     const files = [];
     const visit = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? visit(path.join(d, e.name)) : files.push(path.join(d, e.name))));
     visit(path.resolve(__dirname, '../../skills/act-local-ci'));
+    const shipped = path.join(kit.REPO_ROOT, 'packages', 'git', 'skills', 'act-local-ci');
+    visit(shipped);
     files.push(__filename, path.resolve(__dirname, '../../checks/act-local-ci.js'));
-    const shapes = /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|npm_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{12,}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{10,}|flk_live_\w+)\b/;
-    for (const f of files) expect([path.basename(f), shapes.test(fs.readFileSync(f, 'utf8'))]).toEqual([path.basename(f), false]);
+    const shapes = /\b(?:gh[pousr]_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,}|npm_[A-Za-z0-9]{8,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{8,}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{10,}|flk_live_\w+)\b/;
+    for (const f of files) {
+      if (!fs.readFileSync(f, 'utf8').includes('\0')) expect([path.relative(path.dirname(f), f), shapes.test(fs.readFileSync(f, 'utf8'))]).toEqual([path.relative(path.dirname(f), f), false]);
+    }
+    expect(files.some((f) => f.startsWith(shipped))).toBe(true);
   });
 
   test('the canary exists in the fixture under a plain name, no .js, no pre-existing .secrets/.gitignore/.actrc, the stub is executable, the workflow has the traps', () => {

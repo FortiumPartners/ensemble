@@ -106,10 +106,10 @@ logging:
 # ---
 # Example .secrets file (DO NOT COMMIT):
 # ---
-# GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-# NPM_TOKEN=npm_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-# AWS_ACCESS_KEY_ID=AKIAXXXXXXXXXXXXXXXX
-# AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# GITHUB_TOKEN=<github-token>
+# NPM_TOKEN=<npm-token>
+# AWS_ACCESS_KEY_ID=<aws-access-key-id>
+# AWS_SECRET_ACCESS_KEY=<aws-secret-access-key>
 
 # ---
 # Example .secrets.example file (commit this for documentation):

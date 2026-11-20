@@ -181,15 +181,15 @@ act -s MY_SECRET=value
 act -s TOKEN=abc123 -s API_KEY=xyz789
 
 # From environment
-export GITHUB_TOKEN=ghp_xxx
+export GITHUB_TOKEN=<github-token>
 act -s GITHUB_TOKEN
 
 # From file
 cat > .secrets << 'EOF'
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-NPM_TOKEN=npm_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-AWS_ACCESS_KEY_ID=AKIAXXXXXXXXXXXXXXXX
-AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GITHUB_TOKEN=<github-token>
+NPM_TOKEN=<npm-token>
+AWS_ACCESS_KEY_ID=<aws-access-key-id>
+AWS_SECRET_ACCESS_KEY=<aws-secret-access-key>
 EOF
 act --secret-file .secrets
 ```
@@ -216,7 +216,7 @@ act --env-file .env
 # Create a Personal Access Token at:
 # https://github.com/settings/tokens
 
-act -s GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+act -s GITHUB_TOKEN=<github-token>
 ```
 
 ## Configuration Files
@@ -473,7 +473,7 @@ Error: Context access might be invalid: secrets.GITHUB_TOKEN
 act -s GITHUB_TOKEN=$GITHUB_TOKEN
 
 # Or use secrets file
-echo "GITHUB_TOKEN=ghp_xxx" > .secrets
+echo "GITHUB_TOKEN=<github-token>" > .secrets
 act --secret-file .secrets
 ```
 
