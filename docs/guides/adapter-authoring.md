@@ -128,6 +128,18 @@ health:
 - `id`, `run` (an argv array) and `timeoutMs` (a positive integer) are all required.
 - Checks run during `toolchain-cli preflight` before any side-effecting capability. The first failure stops the run with `HEALTH_FAILED`, naming the adapter and the check id.
 - Keep checks cheap and read-only. A checked binary and subcommand must also be in the allowlist.
+- `when` (optional) makes a check conditional on the language of the project under test. The project root is scanned for language markers (`mix.exs` for `elixir`, `Gemfile` for `ruby`, `pyproject.toml` for `python`, `package.json` for `javascript`, and so on); the check is skipped unless the project is detected as one of the listed languages. A check without `when` always runs, and when no language can be detected every check runs too, so a check that passes today can never start failing because of this field.
+
+```yaml
+health:
+  - id: elixir-installed
+    run: ["elixir", "--version"]
+    timeoutMs: 5000
+    when:
+      languages: ["elixir"]
+```
+
+Use `when` for a check that only makes sense for one ecosystem — an interpreter that a different variant of the adapter would use. Do not use it to hide a check that every project of that language must pass: the check still runs for the projects it names.
 
 ## Validate
 

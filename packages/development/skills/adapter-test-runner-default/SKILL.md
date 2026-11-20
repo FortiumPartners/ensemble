@@ -39,6 +39,14 @@ interpretation I2 (same convention `adapter-workflow-plain-git`/`adapter-tracker
 `allowlist` permits each binary only the literal path of its one script plus `--version` (for
 the matching health check).
 
+The five `health:` checks are not all unconditional: `python3-installed`, `elixir-installed` and
+`ruby-installed` each declare `when: {languages: [...]}`, so `toolchain-cli preflight` runs them
+only when the project under test is detected as that language (a marker-file scan of the project
+root). `node-installed` and `bash-installed` are unconditional. Without this, `preflight
+--require test-runner.run` failed with `MISSING_BINARY` in every repo that has no Elixir, Python
+or Ruby installed, even when the repo names a different test runner. See
+`docs/guides/adapter-authoring.md` ("Health checks") for the field.
+
 `test-runner.run`'s single capability uses `variants` keyed on `framework`
 (`runner.js#selectTemplate`): an unknown `framework` value throws `NOT_ALLOWED` before any
 process spawns. Smoke-tested live against this manifest (no process spawned, `NOT_ALLOWED`

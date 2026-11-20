@@ -147,6 +147,7 @@ const { isNonInteractive } = require('./confirm');
 const { requireCapabilities } = require('./resolve');
 const { resolveWorkGraphAdapter } = require('./work-graph-resolve');
 const { assertKnownAdapter } = require('./resolve-guard');
+const { detectStack, normalizeLanguage } = require('./detect-stack');
 
 const DEFAULT_HEALTH_TIMEOUT_MS = 10000;
 
@@ -183,6 +184,58 @@ function stateDir(projectRoot) {
  */
 function preflightRecordPath(projectRoot, runId) {
   return path.join(stateDir(projectRoot), `preflight-${runId}.json`);
+}
+
+/**
+ * Whether a health check declares a language condition (`when.languages`). Manifests are
+ * schema-validated elsewhere, so this only guards against an absent or malformed condition.
+ *
+ * @param {{when?: {languages?: unknown}}} check
+ * @returns {string[]|null} the canonical languages the check applies to, or null when it is
+ *   unconditional and must always run
+ */
+function conditionLanguages(check) {
+  const when = check && check.when;
+  if (!when || typeof when !== 'object' || !Array.isArray(when.languages) || when.languages.length === 0) {
+    return null;
+  }
+  return when.languages.map(normalizeLanguage).filter(Boolean);
+}
+
+/**
+ * Drop the health checks whose `when.languages` condition the project does not meet (TRD-less
+ * fix for reporter finding 9). Detection runs once per preflight and only when some check is
+ * conditional. A project whose languages cannot be detected keeps today's behaviour: an EMPTY
+ * detection result means "unknown", so every check still runs and no existing gate can silently
+ * disappear. Unconditional checks (no `when`) are never dropped.
+ *
+ * @param {Array<{adapterId: string, manifest: object, check: object, category: string}>} tasks
+ * @param {string} projectRoot directory the checks run in (`ctx.projectRoot`)
+ * @returns {Promise<typeof tasks>} the tasks that must run, in the original order
+ */
+async function applyLanguageConditions(tasks, projectRoot) {
+  const conditional = tasks.some((task) => conditionLanguages(task.check) !== null);
+  if (!conditional) {
+    return tasks;
+  }
+  let detected = [];
+  try {
+    const result = await detectStack(projectRoot);
+    detected = Array.isArray(result.languages) ? result.languages : [];
+  } catch {
+    detected = [];
+  }
+  if (detected.length === 0) {
+    return tasks;
+  }
+  const detectedSet = new Set(detected.map(normalizeLanguage));
+  return tasks.filter((task) => {
+    const wanted = conditionLanguages(task.check);
+    if (wanted === null) {
+      return true;
+    }
+    return wanted.some((language) => detectedSet.has(language));
+  });
 }
 
 /**
@@ -497,11 +550,18 @@ async function runPreflight(input = {}, ctx = {}) {
     }
   }
 
+  // Language-conditional health checks: a check may declare `when.languages`, and then it only
+  // applies to a project detected as one of those languages. Filtering happens here, before either
+  // stage, so a conditional `minVersion` probe is skipped too and the capability-gate record below
+  // only reflects checks that actually ran. Detection is read once per run and only when at least
+  // one check is conditional. When no language can be detected, every check runs exactly as before.
+  const applicableTasks = await applyLanguageConditions(checkTasks, projectRoot);
+
   // Stage 1: version probes (checks declaring `minVersion`), deduplicated per adapter+check id,
   // run before ANY other health check is issued (see "Minimum-version gate" in the header).
   const gateTasks = [];
   const seenGates = new Set();
-  for (const task of checkTasks) {
+  for (const task of applicableTasks) {
     if (typeof task.check.minVersion !== 'string') continue;
     const key = `${task.adapterId}\u0000${task.check.id}`;
     if (seenGates.has(key)) continue;
@@ -522,7 +582,7 @@ async function runPreflight(input = {}, ctx = {}) {
 
   // Stage 2: every remaining check, concurrently, exactly as before.
   const results = await Promise.all(
-    checkTasks
+    applicableTasks
       .filter((task) => typeof task.check.minVersion !== 'string')
       .map((task) =>
         task.check.jsonAssert
@@ -540,7 +600,7 @@ async function runPreflight(input = {}, ctx = {}) {
   const record = { ok: true, runId, categories: categoryList, capabilities: [...new Set(requires)], checkedAt };
   // Only categories whose resolved adapter declares the binding gate (jsonAssert) enforce the
   // capability report in `run`; every other adapter (beads, ...) is unaffected.
-  const gatedCategories = [...new Set(checkTasks.filter((t) => t.check.jsonAssert).map((t) => t.category))];
+  const gatedCategories = [...new Set(applicableTasks.filter((t) => t.check.jsonAssert).map((t) => t.category))];
   if (gatedCategories.length > 0) {
     record.capabilityGate = true;
     record.gatedCategories = gatedCategories;
@@ -548,7 +608,7 @@ async function runPreflight(input = {}, ctx = {}) {
     // gated category is reported available, not only the `--require` set. The gate still refuses a
     // capability the manifest does not declare.
     const declared = new Set(record.capabilities);
-    for (const task of checkTasks) {
+    for (const task of applicableTasks) {
       if (!task.check.jsonAssert) continue;
       for (const id of Object.keys((task.manifest && task.manifest.capabilities) || {})) {
         if (gatedCategories.includes(id.split('.')[0])) declared.add(id);

@@ -48,18 +48,31 @@ health:
   - id: node-installed
     run: ["node", "--version"]
     timeoutMs: 5000
+  # The three interpreter checks below are conditional on the project's detected
+  # language: this adapter ships one runner script per language, so a repository
+  # that is not a Python/Ruby/Elixir project has no reason to have those
+  # interpreters installed, and requiring them made `preflight --require
+  # test-runner.run` fail with MISSING_BINARY in every non-Python/Ruby/Elixir
+  # repo. `node` and `bash` stay unconditional: they back the jest and xunit
+  # runners, which are the defaults.
   - id: python3-installed
     run: ["python3", "--version"]
     timeoutMs: 5000
+    when:
+      languages: ["python"]
   - id: elixir-installed
     run: ["elixir", "--version"]
     timeoutMs: 5000
+    when:
+      languages: ["elixir"]
   - id: bash-installed
     run: ["bash", "--version"]
     timeoutMs: 5000
   - id: ruby-installed
     run: ["ruby", "--version"]
     timeoutMs: 5000
+    when:
+      languages: ["ruby"]
 
 # "default" is the shipped default for `test-runner` (toolchain.default.yaml), not
 # remote-detected, per TRD interpretation I2: a shipped default with no detect signal at all
