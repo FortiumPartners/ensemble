@@ -6,7 +6,6 @@ const { spawnSync } = require('child_process');
 const SKILL_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const AXES = ['framework', 'test', 'tooling', 'cloud'];
-const DEGRADED = 'glob-unavailable';
 
 const tempDirs = [];
 
@@ -15,8 +14,8 @@ afterAll(() => {
 });
 
 /**
- * A copy of the skill in a directory with no node_modules on the path upward, so a
- * `require('glob')` from inside it fails the way it does in a bare install of the shipped Pi
+ * A copy of the skill in a directory with no node_modules on the path upward, so a require of
+ * the npm glob package from inside it fails the way it does in a bare install of the shipped Pi
  * copy. With `withGlob`, the package plus its hoisted dependency closure is vendored beside it
  * (the closure is read from the manifests, so a version bump cannot quietly make it incomplete).
  */
@@ -92,8 +91,9 @@ function fixtureProject() {
 }
 
 /**
- * Run `script` in a child process. `mode: 'absent'` makes every `require('glob')` inside it fail
- * with MODULE_NOT_FOUND, which is the bare-install condition; `'present'` loads it as-is.
+ * Run `script` in a child process. `mode: 'absent'` makes every require of the npm glob package
+ * inside it fail with MODULE_NOT_FOUND, which is the bare-install condition; `'present'` loads it
+ * as-is.
  * `args` runs the CLI exactly as a user does (`node detect-stack.js <args>`, the hook preloaded
  * with --require, since the module does not export its `main`); otherwise `axis` is passed to
  * the API through a small driver.
@@ -148,6 +148,12 @@ function envelope(script, axis, project, { mode = 'absent' } = {}) {
   return parsed;
 }
 
+/** The signal a named candidate carries, or undefined when the axis does not report it. */
+function signal(result, candidate, name) {
+  const found = (result.all_results || []).find(entry => entry.name === candidate);
+  return found && found.signals ? found.signals[name] : undefined;
+}
+
 describe('running detect-stack.js without the glob package', () => {
   // This is the bug: the require ran at module load, so nothing worked, not even --help.
   test('the module loads and its API is intact', () => {
@@ -179,13 +185,13 @@ describe('running detect-stack.js without the glob package', () => {
     const run = runCopy(script, { args: [project] });
     // The CLI exits 0 when something was detected (1 when nothing was, 2 on a usage or runtime
     // error). Without the package the test axis still finds Jest from jest.config.js, so the run
-    // exits 0 with a complete envelope in which every axis says its file evidence was incomplete.
-    // A crash at load time would print no JSON at all, which the parse below distinguishes.
+    // exits 0 with a complete envelope. A crash at load time would print no JSON at all, which
+    // the parse below distinguishes.
     expect(run.status).toBe(0);
     const parsed = JSON.parse(run.stdout);
     expect(parsed.axis).toBe('all');
     expect(parsed.detected).toBe(true);
-    for (const axis of AXES) expect(parsed.axes[axis].degraded).toBe(DEGRADED);
+    for (const axis of AXES) expect(parsed.axes[axis].degraded).toBeUndefined();
 
     const help = runCopy(script, { args: ['--help'] });
     expect(help.status).toBe(0);
@@ -193,26 +199,45 @@ describe('running detect-stack.js without the glob package', () => {
   });
 });
 
-describe('a scan with glob unavailable', () => {
-  test.each(AXES)('the %s axis answers and flags its missing file evidence', axis => {
+describe('a scan with the glob package unavailable', () => {
+  test.each(AXES)('the %s axis answers with the file evidence it needs', axis => {
     const { script } = skillCopy();
     const result = envelope(script, axis, fixtureProject());
     expect(result.axis).toBe(axis);
-    expect(result.degraded).toBe(DEGRADED);
+    expect(result.degraded).toBeUndefined();
   });
 
-  test('the same scan with the package present flags nothing', () => {
+  test('the file lookups still run, so the axes keep their wildcard evidence', () => {
+    // Each of these signals can only be true when a file glob matched: the Jest suites sit in
+    // src/ and are found by '**/*.test.js', the Terraform file is found by '**/*.tf' and the
+    // Dockerfile sits at the project root. A scan that degraded to "no file evidence" would
+    // report all three as false.
+    const { script } = skillCopy();
+    const project = fixtureProject();
+    const test = envelope(script, 'test', project);
+    expect(signal(test, 'jest', 'testFiles')).toBe(true);
+    const cloud = envelope(script, 'cloud', project);
+    expect(signal(cloud, 'aws', 'terraform')).toBe(true);
+    const tooling = envelope(script, 'tooling', project);
+    expect(signal(tooling, 'flyio', 'dockerfile_flyio')).toBe(true);
+  });
+
+  test('the same scan with the package present answers identically', () => {
+    // The package must not change the answer any more: it is not loaded at all, so a scan with
+    // it installed and a scan without it have to be the same scan.
     const { script } = skillCopy({ withGlob: true });
     const project = fixtureProject();
     for (const axis of AXES) {
-      expect(envelope(script, axis, project, { mode: 'present' }).degraded).toBeUndefined();
+      const absent = envelope(skillCopy().script, axis, project);
+      const present = envelope(script, axis, project, { mode: 'present' });
+      expect(present).toEqual(absent);
     }
   });
 
-  test('a tooling result cached during a degraded scan keeps the flag', () => {
+  test('a tooling result cached during the first scan is replayed identically', () => {
     // detectTooling caches its whole result per project path and key-file mtimes, so a second
-    // lookup in the same process is served from the cache. The flag has to be part of the cached
-    // value or the replay would read back as a complete scan.
+    // lookup in the same process is served from the cache. The cached value has to be the same
+    // scan the first lookup produced.
     const { script } = skillCopy();
     const project = fixtureProject();
     const driver = path.join(path.dirname(path.dirname(script)), 'replay.js');
@@ -232,20 +257,23 @@ describe('a scan with glob unavailable', () => {
        `const p = ${JSON.stringify(project)};`,
        "detect('tooling', p)",
        '  .then(first => detect("tooling", p).then(second => ({',
-       '    first: first.degraded,',
-       '    second: second.degraded',
+       '    first: first.results,',
+       '    second: second.results,',
+       '    degraded: [Boolean(first.degraded), Boolean(second.degraded)]',
        '  })))',
        '  .then(value => process.stdout.write(JSON.stringify(value)));'].join('\n')
     );
     const run = spawnSync(process.execPath, [driver], { encoding: 'utf8', timeout: 180000 });
     expect(run.stderr).not.toMatch(/Cannot find module 'glob'/);
-    expect(JSON.parse(run.stdout)).toEqual({ first: DEGRADED, second: DEGRADED });
+    const parsed = JSON.parse(run.stdout);
+    expect(parsed.degraded).toEqual([false, false]);
+    expect(parsed.second).toEqual(parsed.first);
   });
 
-  test('the warning is written once, not per lookup', () => {
+  test('no warning is written, because nothing is missing any more', () => {
     const { script } = skillCopy();
     const run = runCopy(script, { axis: 'all', project: fixtureProject() });
     expect(JSON.parse(run.stdout).axis).toBe('all');
-    expect((run.stderr.match(/is not installed/g) || []).length).toBe(1);
+    expect((run.stderr.match(/is not installed/g) || []).length).toBe(0);
   });
 });

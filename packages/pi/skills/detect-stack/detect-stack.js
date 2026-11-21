@@ -29,55 +29,11 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 
-// "glob" is declared in this plugin's dependencies, but a skill directory installed or copied
-// without them - which is how the shipped Pi copy is distributed - has no node_modules of its
-// own. Requiring it at load time made both `require('./detect-stack')` and
-// `node detect-stack.js` throw MODULE_NOT_FOUND before any argument was read, so the package is
-// required on first use instead. When it is missing, a wildcard lookup yields no matches and is
-// recorded: the scan still answers, and its envelope says the file evidence was incomplete. A
-// pattern with no wildcard is a plain relative existence check and needs none of the glob
-// machinery, so those lookups answer exactly as they did before.
-let globModule;
-async function glob(pattern, options = {}) {
-  if (globModule === undefined) {
-    try {
-      globModule = require('glob').glob;
-    } catch (err) {
-      if (!err || err.code !== 'MODULE_NOT_FOUND') throw err;
-      globModule = null;
-      warnMissingGlob();
-    }
-  }
-  if (globModule !== null) return globModule(pattern, options);
-  if (!pattern.includes('*')) return lookupLiteralPath(pattern, options);
-  globUnavailable = true;
-  return [];
-}
-
-let globUnavailable = false;
-let globWarningShown = false;
-
-function warnMissingGlob() {
-  if (globWarningShown) return;
-  globWarningShown = true;
-  process.stderr.write(
-    '[detect-stack] the optional dependency "glob" is not installed, so wildcard file lookups '
-    + 'yield no matches: detections that rely on them (*.csproj, source imports and decorators, '
-    + 'test file patterns, Terraform and cloud script scans) can be reported lower or missed. '
-    + 'Those axis envelopes carry "degraded": "glob-unavailable".\n'
-  );
-}
-
-function lookupLiteralPath(pattern, options) {
-  const root = options.cwd || process.cwd();
-  const file = path.resolve(root, pattern);
-  try {
-    if (!fs.statSync(file).isFile()) return [];
-  } catch {
-    return [];
-  }
-  return [options.absolute ? file : path.relative(root, file).split(path.sep).join('/')];
-}
+// The plugin bundle (packages/full) is installed by copying the tree, without an npm install, so
+// a skill directory can have no node_modules of its own and cannot resolve the "glob" package.
+// detect-stack therefore matches files with its own dependency-free glob (./glob.js), which
+// implements the patterns this skill passes and needs nothing from node_modules.
+const { glob } = require('./glob');
 
 const AXES = ['framework', 'test', 'tooling', 'cloud'];
 const PATTERNS_DIR = path.join(__dirname, 'patterns');
@@ -186,7 +142,6 @@ class FrameworkDetector {
    * @returns {Promise<Object>} Raw result: primary framework, confidence, alternates, details, scores
    */
   async detect(options = {}) {
-    globUnavailable = false;
     // Handle manual override (TRD-014)
     const manualFramework = options.framework || this.manualOverride;
 
@@ -201,8 +156,7 @@ class FrameworkDetector {
         confidence: 0,
         alternates: [],
         details: {},
-        skipped: true,
-        glob_unavailable: globUnavailable
+        skipped: true
       };
     }
     // Load patterns
@@ -240,8 +194,7 @@ class FrameworkDetector {
       // below the confidence threshold), best first. Feeds all_results.
       scores: Array.from(normalized.values())
         .map(s => ({ framework: s.framework, confidence: s.confidence }))
-        .sort((a, b) => b.confidence - a.confidence),
-      glob_unavailable: globUnavailable
+        .sort((a, b) => b.confidence - a.confidence)
     };
   }
 
@@ -640,7 +593,7 @@ class FrameworkDetector {
   async searchInFiles(pattern, extensions) {
     try {
       const globPattern = `**/*{${extensions.join(',')}}`;
-      const files = globUnavailable ? [] : await glob(globPattern, {
+      const files = await glob(globPattern, {
         cwd: this.projectRoot,
         ignore: ['**/node_modules/**', '**/dist/**', '**/build/**'],
         nodir: true
@@ -729,14 +682,12 @@ class TestFrameworkDetector {
   }
 
   async detect() {
-    globUnavailable = false;
     await this.loadPatterns();
 
     const results = {
       detected: false,
       frameworks: [],
-      primary: null,
-      glob_unavailable: false
+      primary: null
     };
     const all = [];
 
@@ -763,7 +714,6 @@ class TestFrameworkDetector {
 
     // Every runner evaluated, including those with no signal. Feeds all_results.
     results.all = all.sort((a, b) => b.confidence - a.confidence);
-    results.glob_unavailable = globUnavailable;
 
     return results;
   }
@@ -905,10 +855,7 @@ class TestFrameworkDetector {
   }
 
   async findTestFiles(patterns) {
-    // Test patterns are wildcards by definition, so without the package there is no evidence
-    // rather than no tests: the scan stops early and the envelope is marked.
     const files = [];
-    if (globUnavailable) return files;
 
     for (const pattern of patterns) {
       try {
@@ -1240,7 +1187,6 @@ async function detectToolSignals(projectPath, toolKey, toolConfig, detection_rul
  * @returns {Promise<Object>} Raw detection results
  */
 async function detectTooling(projectPath, options = {}) {
-  globUnavailable = false;
   const patterns = loadAxisPatterns('tooling');
   const { tools, detection_rules } = patterns;
 
@@ -1286,8 +1232,6 @@ async function detectTooling(projectPath, options = {}) {
     detected: detectedTools.length > 0,
     tools: detectedTools,
     all_results: toolDetections,
-    // Stored with the cached value so a replay cannot report a degraded scan as a complete one.
-    glob_unavailable: globUnavailable,
     detection_summary: {
       total_analyzed: toolDetections.length,
       detected_count: detectedTools.length,
@@ -1426,7 +1370,6 @@ async function analyzeDockerfiles(projectPath, patterns) {
  * @returns {Promise<Object>} Raw detection results
  */
 async function detectCloudProvider(projectPath, options = {}) {
-  globUnavailable = false;
   const patterns = loadAxisPatterns('cloud');
   const { providers, detection_rules } = patterns;
 
@@ -1529,8 +1472,7 @@ async function detectCloudProvider(projectPath, options = {}) {
       signals: topResult.signals,
       signal_count: topResult.signal_count,
       all_results: results,
-      minimum_confidence: minimumConfidence,
-      glob_unavailable: globUnavailable
+      minimum_confidence: minimumConfidence
     };
   }
 
@@ -1538,8 +1480,7 @@ async function detectCloudProvider(projectPath, options = {}) {
     detected: false,
     confidence: topResult ? topResult.confidence : 0,
     all_results: results,
-    minimum_confidence: minimumConfidence,
-    glob_unavailable: globUnavailable
+    minimum_confidence: minimumConfidence
   };
 }
 
@@ -1630,8 +1571,7 @@ function normalizeFramework(raw, patterns) {
   return buildEnvelope('framework', {
     results,
     allResults,
-    threshold,
-    flags: raw.glob_unavailable ? { degraded: 'glob-unavailable' } : {}
+    threshold
   });
 }
 
@@ -1661,10 +1601,7 @@ function normalizeTest(raw) {
     results: raw.frameworks.map(item),
     allResults: raw.all.map(item),
     threshold: null, // any confidence above 0 counts
-    flags: {
-      ...(raw.glob_unavailable ? { degraded: 'glob-unavailable' } : {}),
-      ...(raw.message ? { message: raw.message } : {})
-    }
+    flags: raw.message ? { message: raw.message } : {}
   });
 }
 
@@ -1682,8 +1619,7 @@ function normalizeTooling(raw) {
   return buildEnvelope('tooling', {
     results: raw.tools.map(item),
     allResults: raw.all_results.map(item),
-    threshold: raw.detection_summary.minimum_confidence,
-    flags: raw.glob_unavailable ? { degraded: 'glob-unavailable' } : {}
+    threshold: raw.detection_summary.minimum_confidence
   });
 }
 
@@ -1710,8 +1646,7 @@ function normalizeCloud(raw, patterns) {
   return buildEnvelope('cloud', {
     results: allResults.filter(r => r.confidence >= raw.minimum_confidence),
     allResults,
-    threshold: raw.minimum_confidence,
-    flags: raw.glob_unavailable ? { degraded: 'glob-unavailable' } : {}
+    threshold: raw.minimum_confidence
   });
 }
 

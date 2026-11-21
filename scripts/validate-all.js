@@ -509,9 +509,9 @@ function validateBundleDataPaths(fullDir = path.join(PACKAGES_DIR, 'full')) {
  * missing dependencies would have failed `npm run validate` on a correct bundle, and
  * narrowing the scope silently to avoid it would have been the worse answer: the
  * skill-level count is printed on every run so the gap is visible rather than assumed
- * away. `glob`, required by skills/core/detect-stack/detect-stack.js, is in that
- * reported set and is deliberately not vendored -- nothing loads that skill at
- * command start, so no entry point dies on it.
+ * away. skills/core/detect-stack used to be the example: it required `glob`, which is
+ * not vendored. It matches files with its own glob.js now, so it names no package
+ * the bundle lacks.
  *
  * @returns {string[]} One message per missing package in the load-time graph
  */

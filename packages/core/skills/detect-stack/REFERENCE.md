@@ -13,12 +13,13 @@ skills/detect-stack/
   SKILL.md                  quick reference
   REFERENCE.md              this file
   detect-stack.js           CLI, API, the four axis engines, envelope normalization
+  glob.js                   the file matcher the axes use, no npm dependency
   performance-benchmark.js  manual benchmark of the tooling axis cache
   patterns/                 framework.json, test.json, tooling.json, cloud.json
   __tests__/                jest suites
 ```
 
-Requirements: Node.js 18 or later and the `glob` npm package (v10), which is resolved from the repository's `node_modules`.
+Requirements: Node.js 18 or later and no npm package: `glob.js` matches files for every axis, so the skill runs wherever it is installed, bundle or checkout.
 
 ## CLI reference
 
@@ -314,7 +315,8 @@ New: `axis`, `threshold`, `signals` and `signal_count` on framework and test ent
 
 - One output envelope (above) instead of three shapes, and one set of exit codes.
 - Input validation: unknown tool and provider names are errors (the old tooling run returned nothing or crashed, the old cloud run silently ignored an unknown `--provider`), `--min-confidence` must be a number in `(0, 1]`, a project path must be a directory, unknown options are errors, and `--tool` is folded into `--tools`. Options after `--tool` were previously ignored.
-- The tooling axis uses `glob` instead of `fast-glob`, with the same patterns, ignore lists, depth limits and regular-files-only matching (symlinks are skipped). `fast-glob` is not a dependency of this repository, so the old tooling detector could not run here.
+- Every axis matches files with the skill's own `glob.js` instead of `fast-glob` or the npm `glob` package, with the same patterns, ignore lists, depth limits and regular-files-only matching (symlinks are skipped). `fast-glob` is not a dependency of this repository, so the old tooling detector could not run here, and the npm `glob` package is not vendored into `ensemble-full`, so the installed plugin could not resolve it either.
+- The envelope no longer carries a `degraded` flag. The flag only ever said that the npm `glob` package was missing, which was always true inside the installed plugin; every axis now answers with its evidence.
 - Documentation corrections: the cloud boost is `confidence_boost` (0.3), not 0.2; the test axis includes ExUnit and the tooling axis Fly.io, ArgoCD and Kustomize (the old SKILL.md files omitted them); Kubernetes manifests must be at the project root for the YAML content signals; the framework detector does not do early exits or parallel checks.
 
 ### What is unchanged

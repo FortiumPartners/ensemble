@@ -532,7 +532,7 @@ Example: adjusting detection rules. `tooling.json` and `cloud.json` read two val
 ## Dependencies
 
 - Node.js 18 or later.
-- The `glob` npm package (resolved from the repository's `node_modules`).
+- No npm dependency: file matching uses the bundled `glob.js`.
 - Other plugins that use this skill (`ensemble-infrastructure`, `ensemble-quality`) need `ensemble-core` installed, because the detectors live here. See their READMEs.
 
 ## See Also

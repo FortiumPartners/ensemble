@@ -9,7 +9,9 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { FrameworkDetector } = require('../detect-stack');
-const { glob } = require('glob');
+// detect-stack matches files with its own dependency-free glob (../glob), so the mock follows
+// the module the skill actually loads rather than the npm package it no longer needs.
+const { glob } = require('../glob');
 
 // Mock dependencies
 jest.mock('fs', () => ({
@@ -19,7 +21,7 @@ jest.mock('fs', () => ({
   }
 }));
 
-jest.mock('glob', () => ({
+jest.mock('../glob', () => ({
   glob: jest.fn()
 }));
 

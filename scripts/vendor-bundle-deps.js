@@ -58,8 +58,8 @@ const SKIP_NAMES = new Set(['.github', '.vscode', 'test', 'tests', '__tests__', 
  * `require('x')` to `node_modules/x.js` as readily as to `node_modules/x/`, and to a
  * dot-prefixed directory carrying a package.json. Skipping files, or dot names, at this
  * level would let a planted `glob.js` load with the integrity check reporting clean --
- * and `glob` is a bare require the bundle already cannot resolve. So anything new here
- * is a deliberate edit to this set.
+ * a bare `require('glob')` resolves to `node_modules/glob.js` as readily as to
+ * `node_modules/glob/`. So anything new here is a deliberate edit to this set.
  */
 const TARGET_NON_PACKAGES = new Set(['README.md']);
 
