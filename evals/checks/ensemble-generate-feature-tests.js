@@ -12,7 +12,7 @@
 
 const path = require('path');
 const { fail, readText, listFiles, walk, need, list, clean, run } = require('./lib');
-const { parsePRD } = require('../../packages/product/lib/prd-parser');
+const { parsePRD } = require('../../packages/product/lib/prd-feature-parser');
 const { hashAc } = require('../../packages/product/lib/feature-gen');
 
 const FIXTURE_PRD = path.join(__dirname, '..', 'skills', 'ensemble-generate-feature-tests', 'fixture', 'docs', 'PRD', 'PRD-2026-a1b2c3d4-csv2json.md');

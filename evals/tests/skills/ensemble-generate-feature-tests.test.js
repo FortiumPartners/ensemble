@@ -8,7 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const kit = require('../skill-eval-kit');
-const { parsePRD } = require('../../../packages/product/lib/prd-parser');
+const { parsePRD } = require('../../../packages/product/lib/prd-feature-parser');
 const { writeArtifacts } = require('../../../packages/product/lib/feature-gen');
 
 const ID = 'ensemble-generate-feature-tests';

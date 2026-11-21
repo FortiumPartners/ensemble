@@ -56,8 +56,8 @@ const THEN_RE = /\bThen\b([^.]*)/i;
 // completion-verification skill (Requirement Coverage Cross-Check, Step 3) to
 // gate Must/Should requirements against closed, satisfying TRD tasks. Kept
 // intentionally minimal per that skill's design notes — not a full PRD
-// parser; packages/product/lib/prd-parser.js#parsePRD is the full parser but
-// lives in a different package and is not cross-required here.
+// parser; packages/product/lib/prd-feature-parser.js#parsePRD is the full
+// parser but lives in a different package and is not cross-required here.
 //
 // Priority comes from either shape in use in this repo's PRDs: a MoSCoW tag
 // bracketed at the end of the heading ("### REQ-009: Title (Must)",

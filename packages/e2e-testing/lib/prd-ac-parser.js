@@ -3,17 +3,17 @@
 /**
  * TRD-002: lightweight PRD REQ/AC parser for /ensemble:author-playwright-tests.
  *
- * A slimmed-down sibling of packages/product/lib/prd-parser.js, deliberately
+ * A slimmed-down sibling of packages/product/lib/prd-feature-parser.js, deliberately
  * scoped to e2e-testing's own lib/ rather than imported cross-package (see
  * TRD-2026-da72aa86 PR 1 design notes). Fixes the two gaps in that parser
  * that are exactly why this module exists:
  *
- *   1. CRLF safety: prd-parser.js's frontmatter regex requires a literal
- *      `\n` delimiter around `---` (packages/product/lib/prd-parser.js:83),
+ *   1. CRLF safety: prd-feature-parser.js's frontmatter regex requires a literal
+ *      `\n` delimiter around `---` (packages/product/lib/prd-feature-parser.js:83),
  *      so it silently fails to match frontmatter in a CRLF (`\r\n`) file.
  *      This parser normalizes line endings up front so REQ/AC extraction and
  *      frontmatter both work regardless of source line-ending style.
- *   2. Title-Case frontmatter keys: prd-parser.js's fallback frontmatter
+ *   2. Title-Case frontmatter keys: prd-feature-parser.js's fallback frontmatter
  *      parser only matches single-word snake_case-ish keys
  *      (`^([A-Za-z0-9_]+):\s*(.*)$`), so two-word Title-Case keys like
  *      `Document ID:` / `Label:` never resolve. This parser normalizes ANY
@@ -23,7 +23,7 @@
  * Pure function: no shell-out, no disk I/O — accepts PRD text as a string.
  */
 
-// REQ heading, matching prd-parser.js's REQ_HEADING_RE shape: "### REQ-001: ..."
+// REQ heading, matching prd-feature-parser.js's REQ_HEADING_RE shape: "### REQ-001: ..."
 // or the nested-under-a-feature-area "#### REQ-001 ..." form.
 const REQ_HEADING_RE = /^#{3,4}\s+(REQ-\d+)\s*:?\s*(.*)$/i;
 

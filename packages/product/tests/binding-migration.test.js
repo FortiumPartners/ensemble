@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { parsePRD } = require('../lib/prd-parser');
+const { parsePRD } = require('../lib/prd-feature-parser');
 const {
   literalStepExpression, collectSteps, renderStepClass, scanBindingAttributes,
   rewriteBindingExpressions, diffBindingDrift, writeBindingArtifacts, writeFileAtomic,

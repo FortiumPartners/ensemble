@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { parsePRD } = require('../lib/prd-parser');
+const { parsePRD } = require('../lib/prd-feature-parser');
 const {
   collectSteps,
   methodNameFor,

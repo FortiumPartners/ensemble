@@ -1,1 +1,1 @@
-../../development/lib/prd-cli.js
+../../product/lib/prd-cli.js

@@ -1,0 +1,1 @@
+../../e2e-testing/lib/evidence-capture.js

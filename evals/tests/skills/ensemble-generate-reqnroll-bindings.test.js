@@ -6,7 +6,7 @@
  */
 
 const kit = require('../skill-eval-kit');
-const { parsePRD } = require('../../../packages/product/lib/prd-parser');
+const { parsePRD } = require('../../../packages/product/lib/prd-feature-parser');
 const { buildBindingArtifacts } = require('../../../packages/product/lib/reqnroll-gen');
 
 const ID = 'ensemble-generate-reqnroll-bindings';

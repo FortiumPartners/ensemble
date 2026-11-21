@@ -3,7 +3,7 @@
 /**
  * Gherkin feature-file generator + traceability manifest builder.
  *
- * Turns a ParsedPRD (see prd-parser.js) into:
+ * Turns a ParsedPRD (see prd-feature-parser.js) into:
  *   - one `<REQ-NNN>.feature` file per requirement, with traceability tags and a
  *     content-hash stamp on every scenario, and
  *   - a `.prd-trace.json` manifest mapping every AC id to its requirement, hash,
@@ -19,7 +19,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const { deriveLabel } = require('./prd-parser');
+const { deriveLabel } = require('./prd-feature-parser');
 
 /** Effective display label: the authored one, else a derived fallback. */
 function labelFor(prd) {
@@ -87,8 +87,8 @@ function renderScenario(ac) {
 
 /**
  * Render a single requirement into a .feature document string.
- * @param {import('./prd-parser').ParsedPRD} prd
- * @param {import('./prd-parser').Requirement} req
+ * @param {import('./prd-feature-parser').ParsedPRD} prd
+ * @param {import('./prd-feature-parser').Requirement} req
  */
 function renderFeature(prd, req) {
   const out = [];
@@ -117,7 +117,7 @@ function renderFeature(prd, req) {
 // ---------------------------------------------------------------------------
 
 /**
- * @param {import('./prd-parser').ParsedPRD} prd
+ * @param {import('./prd-feature-parser').ParsedPRD} prd
  * @param {string} slug   stable output-dir name (PRD filename stem)
  * @param {Object} [opts]
  * @param {string} [opts.prdPath] original PRD path recorded in the manifest

@@ -3,7 +3,7 @@
 /**
  * Deterministic Reqnroll (xUnit) project generator.
  *
- * Turns a ParsedPRD (see prd-parser.js) into a runnable Reqnroll + xUnit test
+ * Turns a ParsedPRD (see prd-feature-parser.js) into a runnable Reqnroll + xUnit test
  * project skeleton:
  *   - Features/<REQ-NNN>.feature   (reused verbatim from feature-gen.js)
  *   - Steps/<REQ-NNN>.Steps.cs     ([Binding] class: literal attrs + Pending bodies)
@@ -640,7 +640,7 @@ function rewriteBindingExpressions(prd, csText) {
  * provided .cs sources. Identity is the normalized step text (keyword-agnostic
  * for matching, since "And" rebinds to a primary keyword).
  *
- * @param {import('./prd-parser').ParsedPRD} prd
+ * @param {import('./prd-feature-parser').ParsedPRD} prd
  * @param {string[]} csSources  contents of the Steps/*.cs files
  * @returns {{inSync, unbound:Array, orphaned:Array}}
  */

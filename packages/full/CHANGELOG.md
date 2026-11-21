@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Direct entries in `packages/full/skills/` for the ten command skills the bundle lost when it stopped shipping command stubs, so `/ensemble-full:ensemble-pr-merge`, `-release`, `-assess`, `-standards`, `-discover-standards`, `-inject-standards`, `-fold-prompt`, `-reinstall-plugins`, `-sessionlog` and `-author-playwright-tests` exist again. A whole-package mirror such as `git -> ../../git/skills` keeps paths resolvable but registers no skill. `npm run validate` now fails when a command skill of a source package has no direct entry.
 - Mirror the `pr-review-*.js` libraries (`pr-review-policy`, `pr-review-rules`, `pr-review-paths`, `pr-review-description`, `pr-review-scope`, `pr-review-state`, `pr-review-status`, `pr-review-ledger`, `pr-review-remote`, `pr-review-cli`) under `packages/full/lib/`, matching `packages/development/lib/`, so the `pr-review-cycle` skill resolves its libraries from the `ensemble-full` install.
+- The bundle now ships the product CLI libraries the shipped skills name: `reqnroll-cli.js`, `reqnroll-gen.js`, `reqnroll-run.js`, `feature-gen.js`, `drift.js`, `prd-registry.js` and `prd-feature-parser.js` (the product's PRD parser, renamed from `prd-parser.js` so it no longer collides with the development parser in the bundle's flat `lib/` namespace).
+- `packages/full/lib/prd-cli.js` now points at the product's CLI, which serves the registry commands (`list`, `status`, `migrate-frontmatter`) as well as the feature pipeline commands (`parse`, `generate-features`, `check-drift`), so the shipped skills resolve one entry point that works in the installed plugin.
+- The e2e-testing contract libraries the `playwright-tester` agent names (`delegation-contract.js`, `test-runner-mode.js`, `grounded-marker-checker.js`, and their dependency `evidence-capture.js` with `spec-writer.js`) are mirrored under `packages/full/lib/`.
 
 ## [6.9.2] - 2026-06-23
 

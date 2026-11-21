@@ -5,13 +5,22 @@
  * Deterministic PRD → Gherkin CLI.
  *
  * Mirrors packages/development/lib/trd-cli.js: a thin argv layer over pure libs
- * (prd-parser, feature-gen, drift). Slash commands shell out to this; nothing is
- * hand-parsed in prose.
+ * (prd-feature-parser, feature-gen, drift). Slash commands shell out to this;
+ * nothing is hand-parsed in prose.
+ *
+ * The plugin bundle exposes one lib/prd-cli.js, so this CLI also serves the
+ * registry commands (list, status, migrate-frontmatter) mirrored in
+ * prd-registry.js. Registry commands keep the registry contract — a single
+ * JSON object on stdout, `{"error":"<msg>"}` and exit 1 on failure — while
+ * the feature pipeline commands stay human-readable unless --json is passed.
  *
  * Subcommands:
  *   parse             <prd-path> [--json]
  *   generate-features <prd-path> [--out <dir>] [--dry-run] [--force]
  *   check-drift       <prd-path> [--out <dir>] [--json]
+ *   list              [--type prd|trd] [--dir <path>]
+ *   status            <slug> [--type prd|trd] [--dir <path>]
+ *   migrate-frontmatter <dir>
  *
  * Exit codes:
  *   0  success / IN_SYNC
@@ -22,9 +31,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const { parsePRD } = require('./prd-parser');
+const { parsePRD } = require('./prd-feature-parser');
 const { buildArtifacts, writeArtifacts, MANIFEST_NAME } = require('./feature-gen');
 const { diffDrift } = require('./drift');
+const registry = require('./prd-registry');
 
 const DEFAULT_OUT = 'features';
 
@@ -181,6 +191,25 @@ function main(argv) {
   const [cmd, ...rest] = argv;
   const wantsJson = rest.includes('--json');
 
+  const registryHandler = {
+    list: registry.runList,
+    status: registry.runStatus,
+    'migrate-frontmatter': registry.runMigrateFrontmatter,
+  }[cmd];
+  if (registryHandler) {
+    try {
+      const result = registryHandler(rest);
+      const json = JSON.stringify(result);
+      if (typeof json !== 'string') throw new Error('Result was not JSON-serializable');
+      process.stdout.write(json + '\n');
+      return 0;
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err);
+      process.stdout.write(JSON.stringify({ error: message }) + '\n');
+      return 1;
+    }
+  }
+
   try {
     if (cmd === 'parse') {
       const r = runParse(rest);
@@ -200,7 +229,8 @@ function main(argv) {
       return r.drift.inSync ? 0 : 2;
     }
     console.error(
-      'Usage: prd-cli <parse|generate-features|check-drift> <prd-path> [--out dir] [--dry-run] [--force] [--json]'
+      'Usage: prd-cli <parse|generate-features|check-drift|list|status|migrate-frontmatter> ' +
+      '<prd-path> [--out dir] [--dry-run] [--force] [--json]'
     );
     return 1;
   } catch (err) {
@@ -214,4 +244,14 @@ if (require.main === module) {
   process.exit(main(process.argv.slice(2)));
 }
 
-module.exports = { main, runParse, runGenerate, runCheckDrift, parseArgs, deriveSlug };
+module.exports = {
+  main,
+  runParse,
+  runGenerate,
+  runCheckDrift,
+  runList: registry.runList,
+  runStatus: registry.runStatus,
+  runMigrateFrontmatter: registry.runMigrateFrontmatter,
+  parseArgs,
+  deriveSlug,
+};

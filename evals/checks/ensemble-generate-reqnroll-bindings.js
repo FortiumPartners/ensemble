@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { clean, fail, readText, listFiles, walk, run } = require('./lib');
-const { parsePRD } = require('../../packages/product/lib/prd-parser');
+const { parsePRD } = require('../../packages/product/lib/prd-feature-parser');
 const { collectSteps, buildBindingArtifacts, literalStepExpression, MANIFEST_NAME } = require('../../packages/product/lib/reqnroll-gen');
 
 const SKILL = 'ensemble-generate-reqnroll-bindings';

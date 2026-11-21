@@ -1,6 +1,6 @@
 'use strict';
 
-const { parsePRD } = require('../lib/prd-parser');
+const { parsePRD } = require('../lib/prd-feature-parser');
 const {
   scanBindingAttributes,
   diffBindingDrift,

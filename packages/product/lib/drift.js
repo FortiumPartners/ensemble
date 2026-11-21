@@ -12,7 +12,7 @@
 const { hashAc } = require('./feature-gen');
 
 /**
- * @param {import('./prd-parser').ParsedPRD} prd  freshly parsed PRD
+ * @param {import('./prd-feature-parser').ParsedPRD} prd  freshly parsed PRD
  * @param {Object} manifest  parsed .prd-trace.json
  * @returns {{
  *   inSync: boolean,

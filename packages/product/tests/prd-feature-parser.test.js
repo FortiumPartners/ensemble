@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { parsePRD, deriveLabel } = require('../lib/prd-parser');
+const { parsePRD, deriveLabel } = require('../lib/prd-feature-parser');
 
 const SAMPLE = fs.readFileSync(
   path.join(__dirname, 'fixtures/PRD-sample.md'),

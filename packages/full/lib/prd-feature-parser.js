@@ -1,0 +1,1 @@
+../../product/lib/prd-feature-parser.js

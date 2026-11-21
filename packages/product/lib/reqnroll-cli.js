@@ -4,7 +4,7 @@
 /**
  * Reqnroll (xUnit) BDD codegen + drift + run CLI.
  *
- * Mirrors prd-cli.js: a thin argv layer over pure libs (prd-parser, reqnroll-gen,
+ * Mirrors prd-cli.js: a thin argv layer over pure libs (prd-feature-parser, reqnroll-gen,
  * reqnroll-run). Slash commands shell out to this; nothing is hand-parsed.
  *
  * Subcommands:
@@ -22,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { parsePRD } = require('./prd-parser');
+const { parsePRD } = require('./prd-feature-parser');
 const { parseArgs, deriveSlug } = require('./prd-cli');
 const {
   writeBindingArtifacts,
