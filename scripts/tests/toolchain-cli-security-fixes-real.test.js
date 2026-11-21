@@ -470,6 +470,7 @@ describe('mutation-restore proof: reviewer Findings 2 and 6 actually discriminat
         '    : await runCapability(loaded.manifest, capability, args, {\n' +
         '        source,\n' +
         '        timeouts: projectTimeouts,\n' +
+        '        projectRoot,\n' +
         '        execFileOptions: { cwd: projectRoot }\n' +
         '      });';
       const replacement =

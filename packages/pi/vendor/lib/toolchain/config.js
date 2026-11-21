@@ -204,9 +204,46 @@ function resolveProjectTimeouts(ctx = {}) {
   return timeouts;
 }
 
+/**
+ * The project-level per-adapter overrides (`adapters: { <adapterId>: { statusMap, statusNames } }`)
+ * for the runner's status-vocabulary extension. Read from the same project config
+ * `resolveCategory` reads (`ctx.projectConfig` when supplied, else `.ensemble/toolchain.yaml`).
+ * Project config only: a repository extends an adapter's own status vocabulary in its own
+ * checkout, never in the user-level file.
+ *
+ * @param {string} adapterId the adapter id (e.g. `jira`)
+ * @param {{projectRoot?: string, projectConfig?: object|null}} [ctx]
+ * @returns {{statusMap: Record<string,string>, statusNames: Record<string,string>}} the
+ *   overrides for `adapterId`; empty maps when the project sets none
+ * @throws {Error} if the project config fails schema validation, or the `adapters` block has an
+ *   unknown key or an invalid value (also for a hand-built `ctx.projectConfig`)
+ */
+function resolveAdapterOverrides(adapterId, ctx = {}) {
+  const { projectRoot = process.cwd() } = ctx;
+  const projectConfig =
+    ctx.projectConfig !== undefined
+      ? ctx.projectConfig
+      : loadToolchainConfigFile(path.join(projectRoot, '.ensemble', 'toolchain.yaml'));
+  const adapters = projectConfig && projectConfig.adapters;
+  if (adapters === undefined || adapters === null) return { statusMap: {}, statusNames: {} };
+  // Validate here too: a hand-built `ctx.projectConfig` never passed through the file loader, and
+  // the runner silently ignores an invalid override, which would hide a misconfigured vocabulary.
+  const validate = getValidator();
+  if (!validate({ adapters })) {
+    throw new Error(`invalid adapter overrides (${describeAjvError(validate.errors[0])})`);
+  }
+  const block = adapters[adapterId];
+  if (!block) return { statusMap: {}, statusNames: {} };
+  return {
+    statusMap: block.statusMap || {},
+    statusNames: block.statusNames || {}
+  };
+}
+
 module.exports = {
   resolveCategory,
   resolveProjectTimeouts,
+  resolveAdapterOverrides,
   loadToolchainConfigFile,
   parseToolchainConfigText,
   loadDefaultToolchainConfig,

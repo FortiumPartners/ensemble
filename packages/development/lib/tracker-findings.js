@@ -373,6 +373,7 @@ function createToolchainDeps({ projectRoot, env = process.env, timeoutMs, untrus
       return runCapabilitySync(manifest, capability, args, {
         parentEnv: env,
         timeoutMs,
+        projectRoot,
         execFileOptions: { cwd: projectRoot }
       });
     }

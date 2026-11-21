@@ -138,7 +138,14 @@ describe('TRD-016: unchanged declarative and builtin paths', () => {
     expect(calls[0][0]).toBe(manifest);
     expect(calls[0][1]).toBe('work-graph.ready');
     expect(calls[0][2]).toEqual({ a: 1 });
-    expect(calls[0][3]).toEqual({ source: 'project', execFileOptions: { cwd: '/proj' } });
+    // `projectRoot` rides along with the capability call so the runner can resolve the
+    // repo's `.ensemble/toolchain.yaml` adapter status overrides (tracker statusMap /
+    // statusNames). The assertion stays exact: every key the runner receives is named.
+    expect(calls[0][3]).toEqual({
+      source: 'project',
+      projectRoot: '/proj',
+      execFileOptions: { cwd: '/proj' }
+    });
   });
 
   test('AC-2: the builtin links path receives the tracker manifest exactly as before', async () => {
@@ -154,7 +161,15 @@ describe('TRD-016: unchanged declarative and builtin paths', () => {
     expect(result.via).toBe('builtin');
     expect(calls[0][0]).toBe('work-graph.ready');
     expect(calls[0][1]).toBe(trackerManifest);
-    expect(calls[0][3]).toEqual({ source: 'default', execOpts: { execFileOptions: { cwd: '/proj' } } });
+    // `projectRoot` rides along inside `execOpts` so the runner can resolve the
+    // repo's `.ensemble/toolchain.yaml` adapter status overrides on this path too
+    // (the Jira adapter declares no `work-graph` category, so its work-graph
+    // capabilities resolve through this built-in fallback). The assertion stays
+    // exact: every key the built-in receives is named.
+    expect(calls[0][3]).toEqual({
+      source: 'default',
+      execOpts: { projectRoot: '/proj', execFileOptions: { cwd: '/proj' } }
+    });
   });
 
   test('the argv runner refuses an in-process capability instead of mis-building argv', async () => {

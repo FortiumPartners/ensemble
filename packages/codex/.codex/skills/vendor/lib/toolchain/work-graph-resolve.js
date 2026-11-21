@@ -177,12 +177,24 @@ async function dispatchWorkGraphCapability(resolved, capability, args, opts = {}
     const runBuiltin = opts.runBuiltinImpl || runWorkGraphCapability;
     return runBuiltin(capability, resolved.trackerManifest, args, {
       source: opts.source,
-      execOpts: { timeouts: opts.timeouts, execFileOptions: { cwd: opts.cwd } }
+      // `projectRoot` is forwarded so the runner can resolve the repository's
+      // `.ensemble/toolchain.yaml` (status-vocabulary overrides); without it the
+      // fallback's `tracker.show` / `tracker.list` calls would ignore them.
+      execOpts: {
+        timeouts: opts.timeouts,
+        projectRoot: opts.cwd,
+        execFileOptions: { cwd: opts.cwd }
+      }
     });
   }
 
   const run = opts.runCapabilityImpl || runCapability;
-  return run(manifest, capability, args, { source: opts.source, timeouts: opts.timeouts, execFileOptions: { cwd: opts.cwd } });
+  return run(manifest, capability, args, {
+    source: opts.source,
+    timeouts: opts.timeouts,
+    projectRoot: opts.cwd,
+    execFileOptions: { cwd: opts.cwd }
+  });
 }
 
 module.exports = { resolveWorkGraphAdapter, dispatchWorkGraphCapability };

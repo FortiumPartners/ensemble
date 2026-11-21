@@ -314,7 +314,10 @@ function loadBead(id, cwd) {
     // Synchronous: killed-on-timeout containment is direct-child-only, never a detached
     // descendant (runner.js's "## runCapabilitySync" header section) -- acceptable here since
     // `tracker.show` is a short, one-shot `br` read.
-    const result = runCapabilitySync(manifest, 'tracker.show', { id }, { execFileOptions: { cwd } });
+    const result = runCapabilitySync(manifest, 'tracker.show', { id }, {
+      projectRoot: cwd,
+      execFileOptions: { cwd }
+    });
     if (!result.ok) return null;
     const bead = result.data;
     return bead && bead.id ? bead : null;

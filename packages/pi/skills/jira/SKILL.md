@@ -295,7 +295,7 @@ Steps:
 | `missing configuration: set JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN` | No credentials | Export the three variables above |
 | `HTTP 401` | Invalid token | Regenerate API token |
 | `Resource not found` | Invalid issue key | Verify issue exists |
-| `Status not available` / `no Jira transition to status "X"` | Workflow forbids the transition | Use a status the workflow allows |
+| `Status not available` / `no Jira transition to status "X"` | Workflow forbids the transition | Use a status the workflow allows, or extend `adapters.jira.statusNames` in `.ensemble/toolchain.yaml` |
 | `Rate limited` | Too many requests | Retry with backoff |
 
 ---

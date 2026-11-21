@@ -52,6 +52,28 @@ missing here never reaches the binary. The legacy `ATLASSIAN_*` names stay decla
 (the bundled command reads `ATLASSIAN_SITE_URL` and `ATLASSIAN_AUTH_TOKEN` as fallbacks), so an
 existing setup keeps working.
 
+## Status overrides
+
+The `statusMap` in `adapter.yaml` is Jira Cloud's default "Simplified Workflow" vocabulary.
+A repository whose workflow uses other status names ("Code Review", "QA Testing", ...) extends
+this adapter from its own `.ensemble/toolchain.yaml` instead of duplicating it:
+
+```yaml
+adapters:
+  jira:
+    statusMap:    # read direction: provider status name -> normalized status
+      "Code Review": in_progress
+    statusNames:  # write direction: normalized status -> provider status name
+      open: Backlog
+```
+
+`statusMap` extends the read side (`tracker.show`); a provider status with no entry still fails
+`BAD_OUTPUT`, and the error names the `adapters.jira.statusMap` key to set. `statusNames`
+replaces the provider status name written for a normalized status (`tracker.set-status`,
+`tracker.close`); the manifest defaults ("To Do", "In Progress", "Done") stay in place when it
+is absent. See `packages/development/lib/toolchain/status-overrides.js` and
+`packages/development/lib/toolchain/config.js#resolveAdapterOverrides`.
+
 ## Manifest
 
 `adapter.yaml` declares `categories: [tracker]` with `contract: {tracker: "1.0"}` only --

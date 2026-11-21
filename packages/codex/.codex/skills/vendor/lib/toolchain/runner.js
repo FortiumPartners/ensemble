@@ -337,6 +337,8 @@ const fs = require('fs');
 const path = require('path');
 const Ajv = require('ajv');
 const { mapOutput } = require('./mapping');
+const { resolveAdapterOverrides } = require('./config');
+const { applyStatusOverrides } = require('./status-overrides');
 const { redactSecrets } = require('../complexity-analyzer');
 
 // A placeholder is `{name}` where `name` is a bare identifier-like token (no whitespace). A
@@ -1256,6 +1258,41 @@ function nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail
 }
 
 /**
+ * Resolve the project-level per-adapter status overrides (`.ensemble/toolchain.yaml`
+ * `adapters: { <adapterId>: { statusMap, statusNames } }`) for one capability call.
+ *
+ * The overrides are read ONLY when the caller supplied a project root or an already-read project
+ * config (`opts.projectRoot` / `opts.projectConfig`): a caller that does not know its project
+ * keeps exactly the adapter's own vocabulary, byte for byte. A malformed override block fails
+ * the call with `CONFIG_INVALID` rather than silently falling back to the default vocabulary.
+ *
+ * @param {string} adapterId the adapter id (e.g. `jira`)
+ * @param {object} adapter the parsed adapter manifest
+ * @param {{projectRoot?: string, projectConfig?: object|null}} [opts]
+ * @returns {{overrides: {statusMap: Record<string,string>, statusNames: Record<string,string>}} |
+ *   {envelope: {ok:false, error:{code:'CONFIG_INVALID', message:string}}}}
+ */
+function resolveStatusOverrides(adapterId, adapter, opts = {}) {
+  if (opts.projectRoot === undefined && opts.projectConfig === undefined) {
+    return { overrides: { statusMap: {}, statusNames: {} } };
+  }
+  try {
+    const overrides = resolveAdapterOverrides(adapterId, {
+      projectRoot: opts.projectRoot,
+      projectConfig: opts.projectConfig
+    });
+    return {
+      overrides: {
+        statusMap: overrides.statusMap || {},
+        statusNames: overrides.statusNames || {}
+      }
+    };
+  } catch (error) {
+    return { envelope: { ok: false, error: { code: 'CONFIG_INVALID', message: error.message } } };
+  }
+}
+
+/**
  * Apply a capability's `parse` block (if any) to raw stdout and, for categories declaring a
  * normalized schema, Ajv-validate the mapped result -- the `mapOutput`/`BAD_OUTPUT`/schema-
  * validation portion of the runner envelope contract (TRD-012, PRD REQ-002 AC-002-2, REQ-022
@@ -1279,7 +1316,11 @@ function mapAndValidateOutput(adapterId, capability, cap, stdout) {
   try {
     mapped = mapOutput(stdout, cap.parse);
   } catch (mapError) {
-    return { envelope: { ok: false, error: { code: mapError.code || 'BAD_OUTPUT', message: mapError.message } } };
+    const message =
+      mapError.detail && mapError.detail.kind === 'statusMapMiss'
+        ? `${mapError.message} (add it to \`adapters.${adapterId}.statusMap\` in .ensemble/toolchain.yaml)`
+        : mapError.message;
+    return { envelope: { ok: false, error: { code: mapError.code || 'BAD_OUTPUT', message } } };
   }
 
   const schemaFileName = CAPABILITY_NORMALIZED_SCHEMA[capability] || CATEGORY_NORMALIZED_SCHEMA[capability.split('.')[0]];
@@ -1371,7 +1412,16 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
 
   const built = buildCapabilityArgv(cap, args);
   if (built.envelope) return built.envelope;
-  const argv = built.argv;
+  const overrideState = resolveStatusOverrides(adapterId, adapter, opts);
+  if (overrideState.envelope) return overrideState.envelope;
+  const applied = applyStatusOverrides({
+    adapter,
+    cap,
+    argv: built.argv,
+    overrides: overrideState.overrides
+  });
+  const argv = applied.argv;
+  const effectiveCap = applied.parse === cap.parse ? cap : { ...cap, parse: applied.parse };
 
   const allowlistEnvelope = checkRuntimeAllowlistEnvelope(adapterId, adapter, argv);
   if (allowlistEnvelope) return allowlistEnvelope;
@@ -1511,7 +1561,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
             return;
           }
 
-          const mapped = mapAndValidateOutput(adapterId, capability, cap, stdout);
+          const mapped = mapAndValidateOutput(adapterId, capability, effectiveCap, stdout);
           if (mapped.envelope) {
             resolve(mapped.envelope);
             return;
@@ -1633,7 +1683,16 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
 
   const built = buildCapabilityArgv(cap, args);
   if (built.envelope) return built.envelope;
-  const argv = built.argv;
+  const overrideState = resolveStatusOverrides(adapterId, adapter, opts);
+  if (overrideState.envelope) return overrideState.envelope;
+  const applied = applyStatusOverrides({
+    adapter,
+    cap,
+    argv: built.argv,
+    overrides: overrideState.overrides
+  });
+  const argv = applied.argv;
+  const effectiveCap = applied.parse === cap.parse ? cap : { ...cap, parse: applied.parse };
 
   const allowlistEnvelope = checkRuntimeAllowlistEnvelope(adapterId, adapter, argv);
   if (allowlistEnvelope) return allowlistEnvelope;
@@ -1687,7 +1746,7 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
   const errorEnvelope = checkZeroExitErrorEnvelope(adapterId, capability, stdout);
   if (errorEnvelope) return errorEnvelope;
 
-  const mapped = mapAndValidateOutput(adapterId, capability, cap, stdout);
+  const mapped = mapAndValidateOutput(adapterId, capability, effectiveCap, stdout);
   if (mapped.envelope) return mapped.envelope;
 
   return successEnvelope(capability, adapterId, opts.source, mapped.data);

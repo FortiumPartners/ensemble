@@ -576,6 +576,7 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
     : await runCapability(loaded.manifest, capability, args, {
         source,
         timeouts: projectTimeouts,
+        projectRoot,
         execFileOptions: { cwd: projectRoot }
       });
 

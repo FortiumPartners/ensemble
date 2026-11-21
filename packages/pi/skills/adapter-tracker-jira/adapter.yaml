@@ -77,6 +77,27 @@ health:
 
 detect: []
 
+# Status vocabulary
+# ---------------
+# The `statusMap` blocks below are Jira Cloud's default "Simplified Workflow"
+# vocabulary. A repository whose workflow uses other status names ("Code
+# Review", "QA Testing", ...) extends this adapter from its own
+# `.ensemble/toolchain.yaml` instead of duplicating the whole adapter:
+#
+#   adapters:
+#     jira:
+#       statusMap:    # read direction: provider status name -> normalized status
+#         "Code Review": in_progress
+#       statusNames:  # write direction: normalized status -> provider status name
+#         open: Backlog
+#
+# `statusMap` extends the read side; a provider status with no entry still
+# fails `BAD_OUTPUT`, and the error names the `adapters.jira.statusMap` key to
+# set. `statusNames` replaces the provider status name this adapter writes for
+# a normalized status (the defaults below stay in place when it is absent).
+# See `packages/development/lib/toolchain/status-overrides.js` and
+# `packages/development/lib/toolchain/config.js#resolveAdapterOverrides`.
+
 capabilities:
   # jira issues read <KEY>: `packages/infrastructure/skills/jira/SKILL.md`'s own jq examples
   # (lines ~290-300) document the issue JSON as a FLAT object (never array-wrapped the way

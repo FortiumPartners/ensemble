@@ -453,6 +453,7 @@ describe('mutation-restore proof: bead-context actually discriminates real adapt
       mutateFile(
         mutant.trdCliPath,
         `      const result = runCapabilitySync(manifest, 'tracker.show', { id: beadId }, {
+        projectRoot: process.cwd(),
         execFileOptions: { cwd: process.cwd() },
       });`,
         `      const result = { ok: true, data: JSON.parse(execFileSync('br', ['show', beadId, '--json']))[0] };`

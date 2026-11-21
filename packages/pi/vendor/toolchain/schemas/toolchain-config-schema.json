@@ -31,6 +31,31 @@
     "trustedRepoAdapters": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "adapters": {
+      "type": "object",
+      "description": "Per-adapter overrides keyed by adapter id (e.g. `adapters: { jira: { statusMap: {...}, statusNames: {...} } }`). Lets a repository extend an adapter's status vocabulary without duplicating the adapter.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "statusMap": {
+            "type": "object",
+            "description": "Provider status name -> normalized status (open|in_progress|closed). Read direction: how a provider's own status name is normalized.",
+            "additionalProperties": { "type": "string", "enum": ["open", "in_progress", "closed"] }
+          },
+          "statusNames": {
+            "type": "object",
+            "description": "Normalized status -> provider status name. Write direction: which provider status name is written for a normalized status.",
+            "additionalProperties": false,
+            "properties": {
+              "open": { "type": "string", "minLength": 1, "pattern": "^[^-]" },
+              "in_progress": { "type": "string", "minLength": 1, "pattern": "^[^-]" },
+              "closed": { "type": "string", "minLength": 1, "pattern": "^[^-]" }
+            }
+          }
+        }
+      }
     }
   }
 }

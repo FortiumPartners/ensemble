@@ -272,11 +272,15 @@ const LEADING_INDEX_PATTERN = /^\[(\d+)\]/;
  * escapes this module uncoded.
  *
  * @param {string} message human-readable message naming what was expected and what was found
+ * @param {{kind?: string, field?: string, value?: unknown}} [detail] machine-readable detail
+ *   about the failure, so a caller can extend the message (e.g. name the config key that fixes
+ *   an unmapped status) without re-parsing the message text
  * @returns {Error} an `Error` with `.code = 'BAD_OUTPUT'`
  */
-function badOutputError(message) {
+function badOutputError(message, detail) {
   const err = new Error(message);
   err.code = 'BAD_OUTPUT';
+  if (detail) err.detail = detail;
   return err;
 }
 
@@ -742,7 +746,10 @@ function mapOutput(stdout, parse) {
     ) {
       const rawStatus = result.status;
       if (!Object.prototype.hasOwnProperty.call(statusMap, rawStatus)) {
-        throw badOutputError(`mapOutput: status value ${JSON.stringify(rawStatus)} has no entry in parse.statusMap`);
+        throw badOutputError(
+          `mapOutput: status value ${JSON.stringify(rawStatus)} has no entry in parse.statusMap`,
+          { kind: 'statusMapMiss', field: 'status', value: rawStatus }
+        );
       }
       result.status = statusMap[rawStatus];
     } else if (
@@ -752,7 +759,10 @@ function mapOutput(stdout, parse) {
     ) {
       const rawState = result.state;
       if (!Object.prototype.hasOwnProperty.call(statusMap, rawState)) {
-        throw badOutputError(`mapOutput: state value ${JSON.stringify(rawState)} has no entry in parse.statusMap`);
+        throw badOutputError(
+          `mapOutput: state value ${JSON.stringify(rawState)} has no entry in parse.statusMap`,
+          { kind: 'statusMapMiss', field: 'state', value: rawState }
+        );
       }
       result.state = statusMap[rawState];
     }

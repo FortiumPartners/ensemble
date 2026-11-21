@@ -479,6 +479,7 @@ function runBeadContext(argv) {
       // descendant (runner.js's "## runCapabilitySync" header section) -- acceptable here
       // since `tracker.show` is a short, one-shot `br` read.
       const result = runCapabilitySync(manifest, 'tracker.show', { id: beadId }, {
+        projectRoot: process.cwd(),
         execFileOptions: { cwd: process.cwd() },
       });
       if (!result.ok) {
@@ -1046,6 +1047,7 @@ function getBeadCounts(slug) {
       // by anything in this function.
       const result = runCapabilitySync(manifest, 'tracker.list', {}, {
         timeoutMs: 10000,
+        projectRoot: process.cwd(),
         execFileOptions: { cwd: process.cwd() },
       });
       if (!result.ok) return { total: 0, open: 0, in_progress: 0, closed: 0 };
