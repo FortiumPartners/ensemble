@@ -19,7 +19,7 @@ Smart permission expansion hook for Claude Code - semantic command matching.
 
 ## Overview
 
-Permitter is a PreToolUse hook that intercepts Bash tool invocations and performs semantic equivalence checking to expand permission matching beyond exact prefix matching. It normalizes commands by stripping environment variables, wrappers, and chains, then matches the core commands against the user's allowlist.
+Permitter is a PermissionRequest hook that intercepts Bash tool invocations and performs semantic equivalence checking to expand permission matching beyond exact prefix matching. It normalizes commands by stripping environment variables, wrappers, and chains, then matches the core commands against the user's allowlist.
 
 ### Why Permitter?
 
@@ -37,7 +37,7 @@ Claude Code's permission allowlist uses exact prefix matching. The format `Bash(
 - **Reduced Friction**: Eliminates repetitive permission prompts for semantically equivalent commands
 - **Preserved Security Model**: Never creates new permissions - only recognizes equivalent forms of already-approved commands
 - **Opt-In by Default**: Users explicitly enable the feature via environment variable
-- **Fail-Closed Design**: Any parse error results in deferral to normal permission flow
+- **Fail-Closed Design**: Any parse error results in deferral to the normal permission flow (no decision emitted)
 - **Transparent Operation**: Debug mode provides full visibility into parsing and matching decisions
 - **Zero Dependencies**: Pure Node.js implementation using only standard library
 
@@ -80,7 +80,6 @@ Add to your shell profile (`.bashrc`, `.zshrc`, etc.) for persistent enablement:
 |----------|---------|-------------|
 | `ENSEMBLE_PERMITTER_DISABLE` | `"0"` | Master enable switch. Set to `"1"` to disable. |
 | `PERMITTER_DEBUG` | `"0"` | Enable debug logging to stderr. Set to `"1"` to see detailed matching info. |
-| `PERMITTER_STRICT` | `"1"` | Exit 1 on any parse error (fail-closed behavior). |
 
 ### Allowlist Configuration
 
@@ -169,7 +168,7 @@ Raw Command: "export API_KEY=xxx && timeout 30 npm test --coverage"
 |   Check against denylist first (precedence)                           |
 |   Then check against allowlist                                         |
 |   "npm test --coverage" matches "Bash(npm test:*)"                    |
-|   Result: ALLOW (exit 0)                                              |
+|   Result: ALLOW (decision on stdout, exit 0)                          |
 +-----------------------------------------------------------------------+
 ```
 
@@ -188,26 +187,37 @@ Raw Command: "export API_KEY=xxx && timeout 30 npm test --coverage"
 | `npm test > log.txt 2>&1` | `npm test` | `Bash(npm test:*)` |
 | `npm start &` | `npm start` | `Bash(npm start:*)` |
 
-### Exit Codes
+### Hook Output and Exit Codes
 
-| Exit Code | Meaning | When It Occurs |
-|-----------|---------|----------------|
-| 0 | Allow command execution | All commands match allowlist, or hook disabled |
-| 1 | Defer to normal permission flow | No match, error, denied, or parse failure |
+The hook writes at most one JSON object to stdout and always exits `0` once it has processed the event.
+Claude Code accepts only `allow` and `deny` for a `PermissionRequest` hook, so those are the only
+behaviours the hook can emit.
+
+| stdout | Exit Code | Meaning |
+|--------|-----------|---------|
+| `{"hookSpecificOutput":{..."behavior":"allow"}}` | 0 | Allow command execution |
+| `{"hookSpecificOutput":{..."behavior":"deny","message":"..."}}` | 0 | Block execution, show message (denylist hit) |
+| (empty) | 0 | No decision - defer to Claude Code's normal permission prompt |
+
+The `deny` message names the rule that matched. The echoed command text and the echoed rule are each
+truncated at 200 characters, so a very long command or rule cannot produce an unbounded message.
 
 ### Fail-Closed Design
 
-Permitter uses a fail-closed security model - when in doubt, defer to Claude Code:
+Permitter uses a fail-closed security model - when in doubt it emits **no decision** so Claude Code
+shows its normal permission prompt. It never auto-allows a command it could not parse or evaluate:
 
-| Scenario | Exit Code | Result |
-|----------|-----------|--------|
-| Parse error | 1 | Normal permission flow |
-| Settings file error | 1 | Normal permission flow |
-| Unknown operator | 1 | Normal permission flow |
-| Unsafe construct | 1 | Normal permission flow |
-| Any exception | 1 | Normal permission flow |
-| Hook disabled | 0 | Pass through (no interference) |
-| All commands match | 0 | Allow execution |
+| Scenario | stdout | Result |
+|----------|--------|--------|
+| Parse error | (empty) | Normal permission flow |
+| Settings load exception | (empty) | Normal permission flow |
+| Unknown operator | (empty) | Normal permission flow |
+| Unsafe construct | (empty) | Normal permission flow |
+| Any exception | (empty) | Normal permission flow |
+| No allowlist match | (empty) | Normal permission flow |
+| Denylist hit | `deny` + message | Execution blocked |
+| Hook disabled | (empty) | Pass through (no interference) |
+| All commands match | `allow` | Allow execution |
 
 ---
 
@@ -221,9 +231,9 @@ Main hook entrypoint that orchestrates the permission expansion pipeline.
 const { main, debugLog } = require('./hooks/permitter');
 ```
 
-#### `main(hookData): Promise<number>`
+#### `main(hookData): Promise<never>`
 
-Process hook data and return exit code.
+Process hook data, write the decision to stdout (if any) and exit. Never resolves.
 
 **Parameters:**
 - `hookData` (Object): Hook data from stdin
@@ -231,15 +241,16 @@ Process hook data and return exit code.
   - `tool_input` (Object): Tool input data
     - `command` (string): The Bash command to execute
 
-**Returns:** `Promise<number>` - Exit code (0 = allow, 1 = defer)
+**Returns:** `Promise<never>` - always calls `process.exit(0)`; stdout carries `allow`/`deny` or is empty to defer
 
 **Example:**
 ```javascript
-const exitCode = await main({
+await main({
   tool_name: 'Bash',
   tool_input: { command: 'npm test' }
 });
-// exitCode: 0 if 'npm test' matches allowlist, 1 otherwise
+// exits 0 with an allow decision on stdout if 'npm test' matches the allowlist,
+// otherwise exits 0 with empty stdout (defer to Claude Code)
 ```
 
 #### `debugLog(msg): void`
@@ -588,7 +599,7 @@ When a command doesn't match:
 - Deny list always takes absolute precedence over allow list
 
 **Fail Closed:**
-- Any parse error results in exit 1 (defer to Claude Code)
+- Any parse error prints no decision and exits 0 (defer to Claude Code's permission prompt)
 - Malformed input never auto-allows
 - Unknown constructs treated conservatively
 
@@ -826,7 +837,7 @@ packages/permitter/
 |   +-- allowlist-loader.js   # Settings file loading
 |   +-- matcher.js            # Pattern matching
 +-- tests/
-|   +-- permitter.test.js     # Hook integration tests
+|   +-- hook-contract.test.js  # Hook contract tests
 |   +-- command-parser.test.js # Parser unit tests
 |   +-- allowlist-loader.test.js # Loader unit tests
 |   +-- matcher.test.js       # Matcher unit tests

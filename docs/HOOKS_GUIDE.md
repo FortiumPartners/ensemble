@@ -20,7 +20,7 @@ The file needs a top-level `hooks` wrapper. `matcher` applies to tool events; om
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js", "timeout": 100 }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js\"", "timeout": 100 }
         ]
       }
     ]
@@ -29,6 +29,8 @@ The file needs a top-level `hooks` wrapper. `matcher` applies to tool events; om
 ```
 
 Plugins reference scripts via `${CLAUDE_PLUGIN_ROOT}`; scripts must be executable.
+
+Wrap the path in escaped quotes inside the JSON string (`"\"${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js\""`) so an install path containing a space is exec'd as one word instead of exiting 127.
 
 ## Hooks Ensemble registers
 

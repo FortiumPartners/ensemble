@@ -7,13 +7,13 @@ design_readiness_score: null
 
 ### 1.1 Purpose
 
-This Technical Requirements Document (TRD) provides the implementation blueprint for **Permitter**, a PreToolUse hook for Claude Code that performs semantic equivalence checking to expand permission matching beyond exact prefix matching.
+This Technical Requirements Document (TRD) provides the implementation blueprint for **Permitter**, a PermissionRequest hook for Claude Code that performs semantic equivalence checking to expand permission matching beyond exact prefix matching.
 
 ### 1.2 Scope
 
 The Permitter package (\`ensemble-permitter\`) is a **standalone, independently installable plugin** that:
 
-- Intercepts Bash tool invocations via the PreToolUse hook system
+- Intercepts Bash tool invocations via the PermissionRequest hook system
 - Parses commands to extract core executables
 - Normalizes commands by stripping environment variables, wrappers, and chains
 - Matches normalized commands against the user's allowlist/denylist
@@ -171,7 +171,7 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 |                        |                                                     |
 |                        v                                                     |
 |   +------------------------------------------+                              |
-|   |         PreToolUse Hook System           |                              |
+|   |         PermissionRequest Hook System    |                              |
 |   |         (Claude Code internal)           |                              |
 |   +------------------------------------------+                              |
 |                        |                                                     |
@@ -182,7 +182,7 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 |   |              permitter.js                |                              |
 |   |         (Main Hook Entrypoint)           |                              |
 |   |                                          |                              |
-|   |  1. Check PERMITTER_ENABLED              |                              |
+|   |  1. Check ENSEMBLE_PERMITTER_DISABLE     |                              |
 |   |  2. Parse stdin JSON                     |                              |
 |   |  3. Orchestrate pipeline                 |                              |
 |   |  4. Return exit code                     |                              |
@@ -207,7 +207,7 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 |   |  | ALLOW   | exit 0 ----------------------+---> Command Executes        |
 |   |  +---------+                             |                              |
 |   |  +---------+                             |                              |
-|   |  | DEFER   | exit 1 ----------------------+---> Normal Permission Flow  |
+|   |  | DEFER   | exit 0 (no output) ---------+---> Normal Permission Flow  |
 |   |  +---------+                             |                              |
 |   +------------------------------------------+                              |
 |                                                                              |
@@ -271,10 +271,10 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 |   Allowlist: ["Bash(npm test:*)", "Bash(git:*)"]            |
 |   Denylist:  ["Bash(rm -rf:*)"]                             |
 |                                                              |
-|   For each command:                                         |
-|     1. Check denylist (exit 1 if match)                     |
-|     2. Check allowlist (continue if match)                  |
-|     3. No match -> exit 1 (defer to normal flow)            |
+|   1. Denylist pass over ALL commands:                       |
+|        deny on the first match                              |
+|   2. Allowlist pass over all commands:                      |
+|        no match -> exit 0, no output (defer to normal flow) |
 |                                                              |
 |   All commands matched -> exit 0 (ALLOW)                    |
 |                                                              |
@@ -322,9 +322,9 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 /**
  * Permitter: Smart permission expansion hook for Claude Code.
  *
- * Exit codes:
- *   0 - Allow command execution (all commands match allowlist)
- *   1 - Defer to normal permission flow (no match or error)
+ * Exit code:
+ *   0 - Always. stdout carries the decision JSON; empty stdout defers to
+ *       Claude Code's normal permission flow.
  */
 
 const { loadAllowlist, loadDenylist } = require('./lib/allowlist-loader');
@@ -342,26 +342,43 @@ function debugLog(msg) {
 }
 
 /**
+ * Build a PermissionRequest decision.
+ * @param {string} behavior - 'allow' or 'deny'
+ * @param {string} [message] - Reason shown to the user on deny
+ * @returns {Object} Decision payload written to stdout
+ */
+function decision(behavior, message) {
+  const payload = {
+    hookSpecificOutput: {
+      hookEventName: 'PermissionRequest',
+      decision: { behavior }
+    }
+  };
+  if (message) payload.hookSpecificOutput.decision.message = message;
+  return payload;
+}
+
+/**
  * Main hook logic.
  * @param {Object} hookData - Hook data from stdin
- * @returns {number} Exit code (0 = allow, 1 = defer)
+ * @returns {Object|null} Decision to print on stdout, or null to defer
  */
 async function main(hookData) {
-  // 1. Check if enabled
-  if (process.env.PERMITTER_ENABLED !== '1') {
-    return 0; // Pass through (disabled)
+  // 1. Check if disabled - the hook is enabled by default
+  if (process.env.ENSEMBLE_PERMITTER_DISABLE === '1') {
+    return null; // Deferred (disabled)
   }
 
   // 2. Only handle Bash tool
   const toolName = hookData.tool_name || hookData.tool;
   if (toolName !== 'Bash') {
-    return 0; // Pass through for non-Bash tools
+    return null; // Deferred for non-Bash tools
   }
 
   // 3. Extract command
   const command = hookData.tool_input?.command || '';
   if (!command) {
-    return 1; // Defer on empty command
+    return null; // Deferred on empty command
   }
 
   debugLog(\`Checking command: \${command}\`);
@@ -380,24 +397,29 @@ async function main(hookData) {
     debugLog(\`Parsed: \${JSON.stringify(commands)}\`);
   } catch (error) {
     debugLog(\`Parse error: \${error.message}\`);
-    return 1; // Defer on parse error (fail-closed)
+    return null; // Deferred on parse error (fail-closed)
   }
 
-  // 6. Check each command
+  // 6. Deny rules first, over every extracted command, so a denied command is
+  // never masked by an earlier command that misses the allowlist
   for (const cmd of commands) {
     if (isDenied(cmd, denylist)) {
       debugLog(\`DENIED: \${cmd.executable} \${cmd.args}\`);
-      return 1;
-    }
-    if (!matchesAny(cmd, allowlist)) {
-      debugLog(\`NO MATCH: \${cmd.executable} \${cmd.args}\`);
-      return 1;
+      return decision('deny', \`Permitter blocked "\${cmd.executable}" (matched deny rule).\`);
     }
   }
 
-  // 7. All commands matched
+  // 7. Then the allowlist, command by command
+  for (const cmd of commands) {
+    if (!matchesAny(cmd, allowlist)) {
+      debugLog(\`NO MATCH: \${cmd.executable} \${cmd.args}\`);
+      return null; // Deferred to the normal permission flow
+    }
+  }
+
+  // 8. All commands matched
   debugLog(\`ALLOW: all \${commands.length} commands matched\`);
-  return 0;
+  return decision('allow');
 }
 
 // Read hook data from stdin
@@ -409,12 +431,13 @@ process.stdin.on('data', (chunk) => {
 process.stdin.on('end', async () => {
   try {
     const hookData = JSON.parse(inputData);
-    const exitCode = await main(hookData);
-    process.exit(exitCode);
+    const result = await main(hookData);
+    // Empty stdout defers to Claude Code's own permission prompt.
+    if (result) console.log(JSON.stringify(result));
   } catch (error) {
     debugLog(\`Fatal error: \${error.message}\`);
-    process.exit(1); // Defer on any error
   }
+  process.exit(0);
 });
 \`\`\`
 
@@ -422,9 +445,9 @@ process.stdin.on('end', async () => {
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| \`PERMITTER_ENABLED\` | \`"0"\` | Master enable switch |
+| \`ENSEMBLE_PERMITTER_DISABLE\` | \`"0"\` | Set to \`"1"\` to disable the hook |
 | \`PERMITTER_DEBUG\` | \`"0"\` | Enable debug logging |
-| \`PERMITTER_STRICT\` | \`"1"\` | Exit 1 on any parse error |
+| \`PERMITTER_STRICT\` | \`"1"\` | Not implemented; no code reads it |
 
 ### 4.2 command-parser.js
 
@@ -883,17 +906,25 @@ Merge Strategy:
 
 ### 5.3 Fail-Closed Behavior
 
-The hook implements **fail-closed** security:
+The hook implements **fail-closed** security: a command it could not parse or evaluate
+is never auto-allowed. Exit code is always `0`; the stdout decision (or its absence)
+is what carries the outcome:
 
-| Scenario | Exit Code | Result |
-|----------|-----------|--------|
-| Parse error | 1 | Normal permission flow |
-| Settings file error | 1 | Normal permission flow |
-| Unknown operator | 1 | Normal permission flow |
-| Unsafe construct | 1 | Normal permission flow |
-| Any exception | 1 | Normal permission flow |
-| Hook disabled | 0 | Pass through |
-| All commands match | 0 | Allow execution |
+| Scenario | stdout | Result |
+|----------|--------|--------|
+| Parse error | empty | Normal permission flow |
+| Settings load exception | empty | Normal permission flow |
+| Unknown operator | empty | Normal permission flow |
+| Unsafe construct | empty | Normal permission flow |
+| Any exception | empty | Normal permission flow |
+| Hook disabled | empty | Normal permission flow |
+| Denylist hit | `deny` decision | Execution blocked |
+| All commands match | `allow` decision | Execution allowed |
+
+"Normal permission flow" means the hook produces no decision, so Claude Code asks
+the user for permission itself. The guarantee is limited to the situations in which
+the hook runs and Claude Code asks for permission; a Claude Code mode that skips
+permission requests altogether is outside the hook's reach.
 
 ### 5.4 Debug Output Format
 
@@ -940,12 +971,12 @@ When \`PERMITTER_DEBUG=1\`:
 
 **Deliverables:**
 - Installable plugin package
-- Working hook that passes through (disabled by default)
+- Working hook that passes through when disabled (\`ENSEMBLE_PERMITTER_DISABLE=1\`); enabled by default
 - Basic documentation
 
 **Exit Criteria:**
 - \`claude plugin install ./packages/permitter\` succeeds
-- Hook executes without error when PERMITTER_ENABLED=1
+- Hook executes without error when \`ENSEMBLE_PERMITTER_DISABLE\` is unset
 - All unit tests pass
 
 ### 6.3 Sprint 2: Command Parsing
@@ -1010,8 +1041,8 @@ When \`PERMITTER_DEBUG=1\`:
 
 | AC ID | Acceptance Criteria | Implementing Tasks |
 |-------|--------------------|--------------------|
-| AC1 | Disabled by default | PERM-P1-CORE-006 |
-| AC2 | Exit 0 on match, exit 1 otherwise | PERM-P1-CORE-008 |
+| AC1 | Enabled by default; disabled only when `ENSEMBLE_PERMITTER_DISABLE` is exactly `1` | PERM-P1-CORE-006 |
+| AC2 | Exit 0 always; allow on match, no output otherwise | PERM-P1-CORE-008 |
 | AC3 | Load from all settings files | PERM-P3-ALLOW-001 through PERM-P3-ALLOW-006 |
 | AC4 | Parse env prefixes, chains, wrappers | PERM-P2-PARSE-005 through PERM-P2-PARSE-012 |
 | AC5 | P99 latency <100ms | PERM-P4-SEC-007 |
@@ -1022,12 +1053,12 @@ When \`PERMITTER_DEBUG=1\`:
 
 | AC | Test Type | Test Location | Pass Criteria |
 |----|-----------|---------------|---------------|
-| AC1 | Unit | permitter.test.js::test disabled by default | Exit 0 when PERMITTER_ENABLED unset |
-| AC2 | Integration | integration.test.js::test exit codes | Correct exit codes for all scenarios |
+| AC1 | Unit | hook-contract.test.js::disabled hook defers silently instead of asking | Exit 0 with empty stdout when ENSEMBLE_PERMITTER_DISABLE=1 |
+| AC2 | Integration | hook-contract.test.js::allow-path behavior is unchanged | Exit 0 with an allow or deny decision, or empty stdout |
 | AC3 | Unit | allowlist-loader.test.js::test merge | All three settings files loaded |
 | AC4 | Unit | command-parser.test.js::test normalization | All construct types handled |
 | AC5 | Performance | performance.test.js::test p99 latency | P99 < 100ms over 1000 runs |
-| AC6 | Unit | permitter.test.js::test fail closed | Exit 1 on any error |
+| AC6 | Unit | security.test.js::Security: Fail-Closed Behavior | No output on any error |
 | AC7 | Unit | permitter.test.js::test debug output | Debug messages on stderr |
 
 ---
@@ -1237,7 +1268,7 @@ describe('Fuzz testing', () => {
 
 ### Appendix C: Hook Protocol Reference
 
-**PreToolUse Hook Contract:**
+**PermissionRequest Hook Contract:**
 
 \`\`\`
 Input (stdin):
@@ -1250,9 +1281,8 @@ Input (stdin):
 }
 
 Output:
-- Exit code 0: Allow tool execution
-- Exit code 1: Block/defer to normal permission flow
-- stdout: Ignored
+- Exit code 0: Hook completed successfully
+- stdout: PermissionRequest decision JSON (allow/deny); empty stdout defers
 - stderr: Debug output (optional)
 \`\`\`
 
@@ -1271,7 +1301,7 @@ packages/permitter/
 |   +-- allowlist-loader.js
 |   +-- matcher.js
 +-- tests/
-|   +-- permitter.test.js
+|   +-- hook-contract.test.js
 |   +-- command-parser.test.js
 |   +-- allowlist-loader.test.js
 |   +-- matcher.test.js
@@ -1290,13 +1320,13 @@ packages/permitter/
 \`\`\`json
 {
   "hooks": {
-    "PreToolUse": [
+    "PermissionRequest": [
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "\${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js"
+            "command": "\"\${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js\""
           }
         ]
       }

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js\"",
             "timeout": 100
           }
         ]

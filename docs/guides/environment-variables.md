@@ -9,7 +9,7 @@ Set these in your shell before invoking Ensemble commands. None are required unl
 | Variable | Default | Purpose | Example |
 |---|---|---|---|
 | `XDG_CONFIG_HOME` | `~/.config` | Base directory for user-level config. Ensemble looks for its config at `$XDG_CONFIG_HOME/ensemble/`. Standard XDG variable shared with other tools. | `XDG_CONFIG_HOME=/opt/config` |
-| `ENSEMBLE_PERMITTER_DISABLE` | _(unset)_ | Disable the permission-expansion hook entirely. Set to any non-empty value (e.g., `1`). Useful when troubleshooting permission issues or when the hook conflicts with other tooling. | `ENSEMBLE_PERMITTER_DISABLE=1` |
+| `ENSEMBLE_PERMITTER_DISABLE` | _(unset)_ | Disable the permission-expansion hook entirely. Only the exact value `1` disables it; any other value (`true`, `yes`, `0`, empty) leaves the hook enabled. Useful when troubleshooting permission issues or when the hook conflicts with other tooling. | `ENSEMBLE_PERMITTER_DISABLE=1` |
 | `PERMITTER_DEBUG` | _(unset)_ | Enable verbose debug logging from the permitter hook to stderr. Set to `1`. Shows detailed permission-matching info for each tool invocation. | `PERMITTER_DEBUG=1` |
 | `ENSEMBLE_USE_STACKED_PRS` | _(unset — single PR)_ | When `true`, `implement-trd-tasks` create one stacked PR per `### PR N:` / sprint section (git-town append chain). When unset or any other value, all phases are implemented on a single branch and ONE PR is created for the whole TRD. Phase ordering is preserved either way. | `ENSEMBLE_USE_STACKED_PRS=true` then run `/ensemble:implement-trd-tasks docs/TRD/my-trd.md` |
 | `ENSEMBLE_BRANCHING_STRATEGY` | _(unset — auto-detect)_ | Overrides Preflight's auto-detected branching strategy for `implement-trd-tasks` and `beads-build`. `git-town` forces git-town (HALTs with instructions if git-town isn't installed or configured). `plain-git` forces plain git commands (`git checkout -b`/`git switch`/`git push`), skipping git-town entirely regardless of its state. When unset, Preflight auto-detects: uses `git-town` if installed and configured; otherwise falls back to `plain-git` (silently if git-town isn't installed, with one warning if it's installed but unconfigured). | `ENSEMBLE_BRANCHING_STRATEGY=plain-git` then run `/ensemble:implement-trd-tasks docs/TRD/my-trd.md` |
@@ -24,7 +24,7 @@ Claude Code sets `CLAUDE_PLUGIN_ROOT` when a plugin loads or a hook is invoked. 
 
 | Variable | Purpose | Notes |
 |---|---|---|
-| `CLAUDE_PLUGIN_ROOT` | Absolute path to the installed plugin directory. Used in all hook `command` fields to locate hook scripts. | Referenced as `${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js` in `hooks.json`. |
+| `CLAUDE_PLUGIN_ROOT` | Absolute path to the installed plugin directory. Used in all hook `command` fields to locate hook scripts. | Referenced as `${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js` in `hooks.json`; the command string is quoted so a path with a space execs as one word. |
 | `CLAUDE_SESSION_ID` | Claude Code session identifier. | Read by the toolchain confirmation code (`packages/development/lib/toolchain/confirm.js`) to identify the session. |
 
 `TOOL_NAME` and `TOOL_INPUT` are not injected by Claude Code. The OpenCode hook bridge (`packages/opencode/src/hooks/bridge.js`) sets them for the hook processes it starts.
