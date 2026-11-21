@@ -20,6 +20,9 @@
     "url": "https://github.com/Sunstone-Partners/ensemble.git",
     "directory": "packages/full"
   },
+  "bin": {
+    "jira": "bin/jira"
+  },
   "devDependencies": {
     "jest": "^29.7.0"
   },

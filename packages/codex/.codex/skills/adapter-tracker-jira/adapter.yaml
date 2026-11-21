@@ -30,14 +30,46 @@ allowlist:
       - comments
       - "--version"
 
+# The `jira` command this adapter invokes ships with the `full` bundle
+# (`packages/full/bin/jira`): a dependency-free Node script (node builtins plus
+# global `fetch`) implementing exactly the subcommands, flags and JSON shapes
+# below. Only the `full` bundle ships it (the Pi and Codex bundles mirror this
+# manifest but contain no `bin/`), and the host must put the bundle's `bin/` on
+# PATH; otherwise a `jira` must be provided on PATH some other way.
+# Authentication is Jira Cloud REST v3 basic auth through these environment
+# variables; the manifest's `env:` list is what
+# `packages/development/lib/toolchain/runner.js#buildChildEnv` forwards to the
+# child process, so a name missing here never reaches the binary.
+#
+# The legacy `ATLASSIAN_*` names stay declared alongside the `JIRA_*` ones so a setup
+# that already exported them (they were this adapter's only declared names before)
+# does not silently lose its credentials. The bundled `packages/full/bin/jira` reads
+# `ATLASSIAN_SITE_URL` and `ATLASSIAN_AUTH_TOKEN` ("email:token") as fallbacks for
+# `JIRA_BASE_URL` and `JIRA_EMAIL` + `JIRA_API_TOKEN`.
 env:
-  - ATLASSIAN_CLOUD_ID
-  - ATLASSIAN_AUTH_TOKEN
+  # Jira Cloud site, e.g. https://your-site.atlassian.net
+  - JIRA_BASE_URL
+  # Account e-mail used as the basic-auth user
+  - JIRA_EMAIL
+  # Atlassian API token (https://id.atlassian.com/manage-profile/security/api-tokens)
+  - JIRA_API_TOKEN
+  # Default project key for `jira issues create` (`tracker.create` declares no
+  # `project` input, so the project comes from the environment)
+  - JIRA_PROJECT_KEY
+  # Legacy aliases, read by the bundled `jira` command as fallbacks
   - ATLASSIAN_SITE_URL
+  - ATLASSIAN_AUTH_TOKEN
+  - ATLASSIAN_CLOUD_ID
 
 health:
+  # `jira --version` must print this client's marker (`jira <x.y.z> (ensemble-client)`): the
+  # version probe reads it with `versionPattern`, so a DIFFERENT `jira` first on PATH (for
+  # example the unrelated jira-cli) fails here as HEALTH_FAILED instead of failing later with
+  # confusing output.
   - id: jira-installed
     run: ["jira", "--version"]
+    minVersion: "1.0.0"
+    versionPattern: '^jira (\d+\.\d+\.\d+) \(ensemble-client\)'
     timeoutMs: 5000
   - id: jira-auth
     run: ["jira", "issues", "list", "--limit", "1"]

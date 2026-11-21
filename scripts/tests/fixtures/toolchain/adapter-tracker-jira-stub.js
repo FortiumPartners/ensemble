@@ -90,7 +90,7 @@ function issueObject(key) {
 }
 
 if (argv[0] === '--version') {
-  process.stdout.write('jira 1.0.0-stub\\n');
+  process.stdout.write('jira 1.0.0 (ensemble-client)\\n');
 } else if (argv[0] === 'issues' && argv[1] === 'read') {
   out(errorEnvelope ? ERROR_ENVELOPE : issueObject(argv[2]));
 } else if (argv[0] === 'issues' && argv[1] === 'list') {

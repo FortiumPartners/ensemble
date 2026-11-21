@@ -121,8 +121,22 @@ describe('TRD-032-TEST: adapter-tracker-jira manifest passes every static valida
     expect(manifest.contract).toEqual({ tracker: '1.0' });
     expect(Object.keys(manifest.capabilities).sort()).toEqual([...EXPECTED_CAPABILITIES].sort());
     // env: names only (PRD REQ-022) -- every entry matches the manifest schema's
-    // ^[A-Z][A-Z0-9_]*$ pattern, never a literal credential value.
-    expect(manifest.env.sort()).toEqual(['ATLASSIAN_AUTH_TOKEN', 'ATLASSIAN_CLOUD_ID', 'ATLASSIAN_SITE_URL']);
+    // ^[A-Z][A-Z0-9_]*$ pattern, never a literal credential value. The names are the
+    // ones the bundle-shipped `jira` command (`packages/full/bin/jira`) authenticates
+    // with (Jira Cloud REST v3 basic auth); `runner.js#buildChildEnv` forwards exactly
+    // these names to the child, so a name missing here never reaches the binary. The
+    // legacy `ATLASSIAN_*` names stay declared so a setup that already exported them
+    // keeps reaching a user-provided `jira` CLI (and the bundled command reads them
+    // as fallbacks) instead of silently losing its credentials.
+    expect(manifest.env.sort()).toEqual([
+      'ATLASSIAN_AUTH_TOKEN',
+      'ATLASSIAN_CLOUD_ID',
+      'ATLASSIAN_SITE_URL',
+      'JIRA_API_TOKEN',
+      'JIRA_BASE_URL',
+      'JIRA_EMAIL',
+      'JIRA_PROJECT_KEY',
+    ]);
     for (const name of manifest.env) {
       expect(name).toMatch(/^[A-Z][A-Z0-9_]*$/);
     }

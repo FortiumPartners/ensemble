@@ -1,0 +1,536 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * `jira` - the Jira Cloud command the Jira tracker adapter invokes.
+ *
+ * Shipped with the `full` bundle (Claude Code puts a plugin's `bin/` directory on PATH),
+ * so an installed plugin no longer needs a globally installed `jira` CLI. Dependency-free:
+ * node builtins and the global `fetch` only, no npm dependencies.
+ *
+ * Configuration (environment):
+ *   JIRA_BASE_URL    Jira Cloud site, e.g. https://your-site.atlassian.net
+ *   JIRA_EMAIL       account e-mail used for basic auth
+ *   JIRA_API_TOKEN   API token for that account
+ *   JIRA_PROJECT_KEY default project key for `issues create`
+ *
+ * Legacy names, used only when the matching `JIRA_*` variable is unset, so a setup that
+ * already exports the older ones keeps working:
+ *   ATLASSIAN_SITE_URL   -> JIRA_BASE_URL
+ *   ATLASSIAN_AUTH_TOKEN -> JIRA_EMAIL and JIRA_API_TOKEN (its old form was "email:token")
+ *
+ * JIRA_BASE_URL must be https (http only for localhost) and hold no credentials. Optional
+ * JIRA_TIMEOUT_MS (default 30000) bounds each request; a response is capped at 10 MiB and a
+ * redirect is never followed.
+ *
+ * Every failure prints exactly one line to stderr and exits non-zero.
+ */
+
+const VERSION = '1.0.0';
+/** Printed by `--version` so the adapter's health check can tell this client from any other `jira`. */
+const CLIENT_MARKER = 'ensemble-client';
+const API_ROOT = '/rest/api/3';
+const DEFAULT_TIMEOUT_MS = 30000;
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+/** Credential strings that must never reach stderr. */
+const SECRETS = [];
+
+/** One stderr line: whitespace collapsed, every credential masked, length bounded. */
+function oneLine(message) {
+  let line = String(message).replace(/\s+/g, ' ').trim();
+  for (const secret of SECRETS) {
+    if (secret) line = line.split(secret).join('***');
+  }
+  return line.length > 400 ? `${line.slice(0, 400)}...` : line;
+}
+
+/** A failure that must be reported as exactly one stderr line. */
+class Failure extends Error {
+  constructor(message, code) {
+    super(message);
+    this.code = code === undefined ? 1 : code;
+  }
+}
+
+function fail(message, code) {
+  throw new Failure(message, code);
+}
+
+/** Write one JSON document to stdout; resolves once the bytes are flushed. */
+function print(value) {
+  return new Promise((resolve) => {
+    process.stdout.write(`${JSON.stringify(value)}\n`, () => resolve());
+  });
+}
+
+/**
+ * `JIRA_BASE_URL` must be an https URL with no embedded credentials, query or fragment: the
+ * Basic credential is sent to it, so a cleartext or credential-bearing URL is refused.
+ * `http://` is accepted for a loopback host only (a local stand-in server). The rejected
+ * value is never echoed, since it may itself hold a secret.
+ */
+function parseBaseUrl(raw) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch (error) {
+    fail('JIRA_BASE_URL is not a valid URL; expected https://<site>.atlassian.net', 2);
+  }
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    fail('JIRA_BASE_URL must be an https:// URL (http:// is accepted for localhost only)', 2);
+  }
+  if (url.username || url.password) {
+    fail('JIRA_BASE_URL must not contain credentials; use JIRA_EMAIL and JIRA_API_TOKEN', 2);
+  }
+  if (url.search || url.hash) fail('JIRA_BASE_URL must not contain a query or fragment', 2);
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+}
+
+function requestTimeoutMs(env) {
+  const value = Number.parseInt(env.JIRA_TIMEOUT_MS || '', 10);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_TIMEOUT_MS;
+}
+
+function readConfig(env) {
+  const rawBaseUrl = String(env.JIRA_BASE_URL || env.ATLASSIAN_SITE_URL || '').trim();
+  let email = String(env.JIRA_EMAIL || '').trim();
+  let apiToken = String(env.JIRA_API_TOKEN || '').trim();
+  // Legacy form: ATLASSIAN_AUTH_TOKEN="email:token" (the format the old setup documented).
+  const legacy = String(env.ATLASSIAN_AUTH_TOKEN || '').trim();
+  const split = legacy.indexOf(':');
+  if ((!email || !apiToken) && split > 0) {
+    email = email || legacy.slice(0, split);
+    apiToken = apiToken || legacy.slice(split + 1);
+  }
+  const projectKey = String(env.JIRA_PROJECT_KEY || '').trim();
+  if (!rawBaseUrl || !email || !apiToken) {
+    fail(
+      'missing configuration: set JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN (Jira Cloud REST v3 basic auth)',
+      2
+    );
+  }
+  if (email.includes(':')) fail('JIRA_EMAIL must not contain ":" (basic auth user names cannot)', 2);
+  const baseUrl = parseBaseUrl(rawBaseUrl);
+  SECRETS.push(apiToken, Buffer.from(`${email}:${apiToken}`).toString('base64'));
+  return { baseUrl, email, apiToken, projectKey };
+}
+
+/** The options each command accepts: `scalar` take one value (given once), `repeat` may repeat. */
+const COMMANDS = {
+  'issues read': { args: 1, usage: '<KEY>', scalar: [], repeat: [] },
+  'issues list': {
+    args: 0,
+    usage: '',
+    scalar: ['limit', 'project', 'status', 'assignee', 'search', 'text', 'jql'],
+    repeat: []
+  },
+  'issues create': {
+    args: 1,
+    usage: '"<summary>"',
+    scalar: ['type', 'description', 'project', 'priority'],
+    repeat: ['label']
+  },
+  'issues update': {
+    args: 1,
+    usage: '<KEY>',
+    scalar: ['summary', 'description', 'status', 'type', 'priority'],
+    repeat: ['label']
+  },
+  'comments create': { args: 1, usage: '<KEY>', scalar: ['body'], repeat: [] },
+  'comments list': { args: 1, usage: '<KEY>', scalar: [], repeat: [] }
+};
+
+/**
+ * Parse `--option value` and `--option=value` strictly. A value is whatever follows its option,
+ * even when it starts with `-` (`--summary --status=Done` renames the issue); a missing value, an
+ * unknown option, a repeated scalar option or a wrong number of arguments fails loudly; `--` ends
+ * the options, so a summary that starts with `--` can follow it.
+ */
+function parseArgs(args, spec, label) {
+  const positional = [];
+  const flags = {};
+  let optionsEnded = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (optionsEnded || !arg.startsWith('--')) {
+      positional.push(arg);
+      continue;
+    }
+    if (arg === '--') {
+      optionsEnded = true;
+      continue;
+    }
+    const equals = arg.indexOf('=');
+    const name = equals === -1 ? arg.slice(2) : arg.slice(2, equals);
+    const repeat = spec.repeat.includes(name);
+    if (!repeat && !spec.scalar.includes(name)) {
+      fail(`unknown option --${name} for ${label} (put -- before an argument that starts with --)`);
+    }
+    let value;
+    if (equals !== -1) {
+      value = arg.slice(equals + 1);
+    } else if (index + 1 < args.length) {
+      index += 1;
+      value = args[index];
+    } else {
+      fail(`option --${name} needs a value`);
+    }
+    if (repeat) {
+      (flags[name] = flags[name] || []).push(value);
+    } else if (flags[name] === undefined) {
+      flags[name] = value;
+    } else {
+      fail(`option --${name} was given more than once`);
+    }
+  }
+  if (positional.length !== spec.args) {
+    fail(`${label} takes ${spec.args} argument(s)${spec.usage ? ` ${spec.usage}` : ''}, got ${positional.length}`);
+  }
+  return { positional, flags };
+}
+
+function flagValue(flags, name) {
+  return flags[name] === undefined ? '' : String(flags[name]);
+}
+
+function flagValues(flags, name) {
+  return flags[name] === undefined ? [] : flags[name].map(String);
+}
+
+/** Atlassian document format -> plain text. */
+function plainText(node) {
+  if (node === null || node === undefined) return '';
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) return node.map(plainText).join('');
+  if (typeof node.text === 'string') return node.text;
+  if (Array.isArray(node.content)) return node.content.map(plainText).join('\n');
+  return '';
+}
+
+/** Plain text -> Atlassian document format. */
+function toAdf(text) {
+  const value = text === null || text === undefined ? '' : String(text);
+  return {
+    type: 'doc',
+    version: 1,
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: value }] }]
+  };
+}
+
+/** The flat issue object the adapter's `parse` blocks read (`.key`, `.summary`, `.status`, ...). */
+function flatIssue(issue) {
+  const source = issue || {};
+  const fields = source.fields || {};
+  return {
+    key: source.key === undefined ? '' : source.key,
+    summary: fields.summary === undefined ? '' : fields.summary,
+    description: plainText(fields.description),
+    issueType: fields.issuetype && fields.issuetype.name ? fields.issuetype.name : '',
+    status: fields.status && fields.status.name ? fields.status.name : '',
+    priority: fields.priority && fields.priority.name ? fields.priority.name : '',
+    labels: Array.isArray(fields.labels) ? fields.labels : []
+  };
+}
+
+/**
+ * One authenticated Jira request. Hardening, in order: the request never follows a redirect (so
+ * `Authorization` can never reach another host), it is bounded by a timeout and by a response
+ * size cap, and every failure becomes one `Failure` whose message holds no credential.
+ */
+async function request(config, method, resource, body) {
+  const url = `${config.baseUrl}${resource}`;
+  const headers = {
+    authorization: `Basic ${Buffer.from(`${config.email}:${config.apiToken}`).toString('base64')}`,
+    accept: 'application/json'
+  };
+  if (body !== undefined) headers['content-type'] = 'application/json';
+  const timeoutMs = requestTimeoutMs(process.env);
+
+  let response;
+  let text;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: 'error',
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    text = await readCapped(response);
+  } catch (error) {
+    if (error instanceof Failure) throw error;
+    if (error && error.name === 'TimeoutError') {
+      fail(`${method} ${resource} timed out after ${timeoutMs} ms`);
+    }
+    const cause = error && error.cause && error.cause.message ? `: ${error.cause.message}` : '';
+    fail(`${method} ${resource} failed: ${error && error.message ? error.message : String(error)}${cause}`);
+  }
+
+  let payload = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch (error) {
+      payload = null;
+    }
+  }
+  if (!response.ok) {
+    const details = [];
+    if (payload && Array.isArray(payload.errorMessages)) details.push(...payload.errorMessages);
+    if (payload && payload.errors && typeof payload.errors === 'object') {
+      details.push(...Object.values(payload.errors).map(String));
+    }
+    const detail = details.length ? details.join('; ') : payload === null ? text.slice(0, 200) : '';
+    fail(
+      `${method} ${resource} failed: HTTP ${response.status}${detail ? ` (${detail})` : ''}${statusHint(response)}`
+    );
+  }
+  if (text && payload === null) {
+    fail(`${method} ${resource} returned a non-JSON response; is JIRA_BASE_URL a Jira Cloud site?`);
+  }
+  return payload;
+}
+
+/** What to do about the statuses an operator can actually fix. */
+function statusHint(response) {
+  if (response.status === 401) return '; check JIRA_EMAIL and JIRA_API_TOKEN';
+  if (response.status === 403) return '; the account lacks permission for this request';
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('retry-after');
+    return retryAfter ? `; rate limited, retry after ${retryAfter}s` : '; rate limited, retry later';
+  }
+  return '';
+}
+
+/** The response text, refusing to buffer more than MAX_RESPONSE_BYTES. */
+async function readCapped(response) {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
+    await response.body?.cancel().catch(() => {});
+    fail(`response is larger than ${MAX_RESPONSE_BYTES} bytes`);
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > MAX_RESPONSE_BYTES) {
+      await reader.cancel().catch(() => {});
+      fail(`response is larger than ${MAX_RESPONSE_BYTES} bytes`);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+/** A read or create that must answer with a JSON object; an empty answer is a failure, not a blank result. */
+function requireObject(payload, what) {
+  if (payload === null || typeof payload !== 'object') fail(`${what} returned no data`);
+  return payload;
+}
+
+function issueKey(value) {
+  const key = String(value === undefined || value === null ? '' : value).trim();
+  if (!key) fail('an issue key is required');
+  return encodeURIComponent(key);
+}
+
+/** A JQL string literal: backslash, double quote and line breaks escaped, so a value can never end the literal. */
+function jqlString(value) {
+  const escaped = String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r');
+  return `"${escaped}"`;
+}
+
+function buildJql(flags) {
+  const clauses = [];
+  const project = flagValue(flags, 'project');
+  const status = flagValue(flags, 'status');
+  const assignee = flagValue(flags, 'assignee');
+  const search = flagValue(flags, 'search') || flagValue(flags, 'text');
+  if (project) clauses.push(`project = ${jqlString(project)}`);
+  if (status) clauses.push(`status = ${jqlString(status)}`);
+  if (assignee) clauses.push(`assignee = ${jqlString(assignee)}`);
+  if (search) clauses.push(`text ~ ${jqlString(search)}`);
+  return clauses.length ? `${clauses.join(' AND ')} ORDER BY created DESC` : 'ORDER BY created DESC';
+}
+
+async function issuesRead(config, positional) {
+  const payload = requireObject(
+    await request(config, 'GET', `${API_ROOT}/issue/${issueKey(positional[0])}`),
+    'issue read'
+  );
+  await print(flatIssue(payload));
+}
+
+async function issuesList(config, flags) {
+  const limit = Number.parseInt(flagValue(flags, 'limit') || '50', 10);
+  const maxResults = Number.isFinite(limit) && limit > 0 ? limit : 50;
+  const jql = flagValue(flags, 'jql') || buildJql(flags);
+  const payload = await request(
+    config,
+    'GET',
+    `${API_ROOT}/search/jql?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}`
+  );
+  const issues = payload && Array.isArray(payload.issues) ? payload.issues : [];
+  await print(issues.map(flatIssue));
+}
+
+async function issuesCreate(config, positional, flags) {
+  const summary = String(positional[0] === undefined ? '' : positional[0]).trim();
+  if (!summary) fail('a summary is required: jira issues create "<summary>"');
+  const project = flagValue(flags, 'project') || config.projectKey;
+  if (!project) fail('no target project: set JIRA_PROJECT_KEY or pass --project <KEY>');
+  const fields = { summary, description: toAdf(flagValue(flags, 'description')) };
+  const type = flagValue(flags, 'type');
+  if (type) fields.issuetype = { name: type };
+  fields.project = { key: project };
+  const labels = flagValues(flags, 'label');
+  if (labels.length) fields.labels = labels;
+  const priority = flagValue(flags, 'priority');
+  if (priority) fields.priority = { name: priority };
+  const payload = requireObject(await request(config, 'POST', `${API_ROOT}/issue`, { fields }), 'issue create');
+  await print({ key: payload.key, id: payload.id, self: payload.self });
+}
+
+async function issuesUpdate(config, positional, flags) {
+  const key = issueKey(positional[0]);
+  // An option that was given must change something: an empty value would otherwise be dropped
+  // while the call still reported success.
+  for (const name of ['summary', 'description', 'status', 'type', 'priority']) {
+    if (flags[name] === '') fail(`--${name} must not be empty`);
+  }
+  const status = flagValue(flags, 'status');
+  const summary = flagValue(flags, 'summary');
+  const description = flagValue(flags, 'description');
+  const type = flagValue(flags, 'type');
+  const priority = flagValue(flags, 'priority');
+  const labels = flagValues(flags, 'label').filter((label) => label !== '');
+  if (!status && !summary && !description && !type && !priority && !labels.length) {
+    fail('nothing to update: pass --summary, --description, --status, --type, --priority or --label');
+  }
+  let transition = null;
+
+  if (status) {
+    const payload = await request(config, 'GET', `${API_ROOT}/issue/${key}/transitions`);
+    const transitions = payload && Array.isArray(payload.transitions) ? payload.transitions : [];
+    const wanted = status.toLowerCase();
+    transition =
+      transitions.find((entry) => entry && entry.to && String(entry.to.name).toLowerCase() === wanted) ||
+      transitions.find((entry) => entry && String(entry.name || '').toLowerCase() === wanted);
+    if (!transition) {
+      fail(`no Jira transition to status "${status}" is available for issue ${key}`);
+    }
+    await request(config, 'POST', `${API_ROOT}/issue/${key}/transitions`, {
+      transition: { id: transition.id }
+    });
+  }
+
+  const fields = {};
+  if (summary) fields.summary = summary;
+  if (description) fields.description = toAdf(description);
+  if (type) fields.issuetype = { name: type };
+  if (priority) fields.priority = { name: priority };
+  if (labels.length) fields.labels = labels;
+  if (Object.keys(fields).length) {
+    await request(config, 'PUT', `${API_ROOT}/issue/${key}`, { fields });
+  }
+
+  const reread = requireObject(await request(config, 'GET', `${API_ROOT}/issue/${key}`), 'issue read');
+  const flat = flatIssue(reread);
+  if (status) flat.status = (transition && transition.to && transition.to.name) || status;
+  await print(flat);
+}
+
+async function commentsCreate(config, positional, flags) {
+  const key = issueKey(positional[0]);
+  const body = flagValue(flags, 'body');
+  if (!body) fail('a comment body is required: jira comments create <KEY> --body "<text>"');
+  const payload = requireObject(
+    await request(config, 'POST', `${API_ROOT}/issue/${key}/comment`, { body: toAdf(body) }),
+    'comment create'
+  );
+  await print({ id: payload.id, body: plainText(payload.body) });
+}
+
+async function commentsList(config, positional) {
+  const key = issueKey(positional[0]);
+  const payload = await request(config, 'GET', `${API_ROOT}/issue/${key}/comment?orderBy=-created`);
+  const comments = payload && Array.isArray(payload.comments) ? payload.comments : [];
+  await print(
+    comments.map((comment) => ({
+      id: comment.id,
+      body: plainText(comment.body),
+      author: comment.author && comment.author.displayName ? comment.author.displayName : '',
+      created: comment.created || ''
+    }))
+  );
+}
+
+function usage() {
+  return [
+    `jira ${VERSION} - Jira Cloud command for the ensemble Jira tracker adapter`,
+    '',
+    'Usage:',
+    '  jira issues read <KEY>',
+    '  jira issues list [--limit N] [--project KEY] [--status NAME] [--assignee NAME] [--search TEXT] [--jql JQL]',
+    '  jira issues create "<summary>" [--type TYPE] [--description TEXT] [--project KEY] [--label L] [--priority P]',
+    '  jira issues update <KEY> [--summary TEXT] [--description TEXT] [--status NAME] [--type TYPE] [--label L] [--priority P]',
+    '  jira comments create <KEY> --body "<text>"',
+    '  jira comments list <KEY>',
+    '  jira --version',
+    '',
+    'Environment: JIRA_BASE_URL (https), JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY (optional)'
+  ].join('\n');
+}
+
+/** Print one line to stdout and resolve once it is flushed. */
+function printLine(text) {
+  return new Promise((resolve) => {
+    process.stdout.write(`${text}\n`, () => resolve());
+  });
+}
+
+async function main(argv) {
+  // Help and version are recognised only as the FIRST argument, never inside option values:
+  // `jira issues update K --summary --version` must rename the issue, not print a version.
+  if (argv[0] === '--help' || argv[0] === '-h') return printLine(usage());
+  if (argv[0] === '--version' || argv[0] === '-v') return printLine(`jira ${VERSION} (${CLIENT_MARKER})`);
+
+  const [group, action] = argv;
+  const label = `jira ${group === undefined ? '' : group} ${action === undefined ? '' : action}`.trim();
+  const spec = COMMANDS[`${group} ${action}`];
+  if (!spec) fail(`unknown command: ${label}`);
+  const { positional, flags } = parseArgs(argv.slice(2), spec, label);
+  const config = readConfig(process.env);
+
+  if (group === 'issues') {
+    if (action === 'read') return issuesRead(config, positional);
+    if (action === 'list') return issuesList(config, flags);
+    if (action === 'create') return issuesCreate(config, positional, flags);
+    return issuesUpdate(config, positional, flags);
+  }
+  if (action === 'create') return commentsCreate(config, positional, flags);
+  return commentsList(config, positional);
+}
+
+main(process.argv.slice(2)).then(
+  () => {
+    process.exit(0);
+  },
+  (error) => {
+    const code = error instanceof Failure ? error.code : 1;
+    const message = error && error.message ? error.message : String(error);
+    process.stderr.write(`jira: ${oneLine(message)}\n`, () => {
+      process.exit(code);
+    });
+  }
+);

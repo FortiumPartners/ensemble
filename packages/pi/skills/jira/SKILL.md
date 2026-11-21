@@ -9,9 +9,19 @@ description: >-
 
 # Jira Integration Skill
 
-**Purpose**: Issue management for Jira Cloud using the `jira` CLI with JSON output optimized for LLM agents.
+**Purpose**: Issue management for Jira Cloud using the `jira` command with JSON output optimized for LLM agents.
 
-**Tool**: `jira` CLI (installed globally via npm link from `~/utils/atlassian`)
+**Tool**: the `jira` command the `full` bundle ships (`packages/full/bin/jira`) -- a
+dependency-free Node script over the Jira Cloud REST v3 API (node builtins plus global
+`fetch`, no npm dependencies). Only the `full` bundle ships it, and it is on PATH only where the
+host adds an installed plugin's `bin/` to PATH (Claude Code does); the Pi and Codex bundles ship
+no `bin/`, so there a client whose `--version` prints `ensemble-client` must be put on PATH.
+
+**Bundled command coverage**: `issues read|list|create|update`, `comments create|list` and
+`--version` -- exactly the command set the `tracker` adapter invokes
+(`packages/infrastructure/skills/adapter-tracker-jira/adapter.yaml`). The wider command list
+below (`issues search`, `issues fetch`, `issues transitions`, `projects list`, `users list`)
+is not implemented by the bundled command.
 
 ---
 
@@ -34,21 +44,25 @@ description: >-
 ### Verify Installation
 
 ```bash
-# Check CLI installed
-jira --version  # Expects: 1.0.0
+# Check the bundled command is on PATH (the marker shows it is this client, not another one)
+jira --version  # Expects: jira 1.0.0 (ensemble-client)
 ```
 
 ### Authentication
 
-**Config location**: `~/utils/atlassian/.env`
+Jira Cloud REST v3 basic auth through the environment:
 
 ```env
-ATLASSIAN_CLOUD_ID=your-cloud-id
-ATLASSIAN_AUTH_TOKEN=email@domain.com:API_TOKEN
-ATLASSIAN_SITE_URL=https://your-site.atlassian.net
+JIRA_BASE_URL=https://your-site.atlassian.net
+JIRA_EMAIL=you@domain.com
+JIRA_API_TOKEN=your-api-token
+JIRA_PROJECT_KEY=VA   # optional: default project for `jira issues create`
 ```
 
-Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+Get an API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+
+`JIRA_BASE_URL` must be `https` (no embedded credentials). Legacy `ATLASSIAN_SITE_URL` and
+`ATLASSIAN_AUTH_TOKEN` (`email:token`) are fallbacks when the `JIRA_*` variable is unset.
 
 ---
 
@@ -277,12 +291,12 @@ Steps:
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| `command not found: jira` | CLI not installed | `cd ~/utils/atlassian && npm link` |
-| `Missing ATLASSIAN_AUTH_TOKEN` | No credentials | Configure `~/utils/atlassian/.env` |
-| `Authentication failed` | Invalid token | Regenerate API token |
+| `command not found: jira` | Bundle `bin/` not on PATH | Install the `full` bundle (it ships `bin/jira`) |
+| `missing configuration: set JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN` | No credentials | Export the three variables above |
+| `HTTP 401` | Invalid token | Regenerate API token |
 | `Resource not found` | Invalid issue key | Verify issue exists |
-| `Status not available` | Invalid transition | Run `jira issues transitions VA-123` to see options |
-| `Rate limited` | Too many requests | CLI auto-retries with backoff |
+| `Status not available` / `no Jira transition to status "X"` | Workflow forbids the transition | Use a status the workflow allows |
+| `Rate limited` | Too many requests | Retry with backoff |
 
 ---
 

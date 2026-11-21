@@ -91,6 +91,93 @@ function validateFullLibMirror() {
   return failures;
 }
 
+/**
+ * The `full` bundle ships the commands it must put on PATH inside an installed plugin.
+ *
+ * A command the bundle ships has to stay runnable after installation: the file must
+ * exist, carry the executable bit, start with a node shebang, and require nothing the
+ * bundle does not vendor (an installed plugin resolves `node_modules` from
+ * `packages/full/lib/node_modules` only, so a bare require of a package that is not
+ * vendored breaks there and nowhere else).
+ *
+ * `jira` is required by name: `packages/infrastructure/skills/adapter-tracker-jira/
+ * adapter.yaml` declares `binaries: [jira]` and both of its health checks
+ * (`jira --version`, `jira issues list --limit 1`) run that command, so an adapter
+ * whose command the bundle does not ship fails every tracker call with
+ * `MISSING_BINARY: jira`.
+ *
+ * @param {string} fullDir packages/full directory
+ * @returns {string[]} Failure messages, empty when the bundle is well formed
+ */
+function validateBundleBinaries(fullDir = path.join(PACKAGES_DIR, 'full')) {
+  const failures = [];
+  const binDir = path.join(fullDir, 'bin');
+  const REQUIRED_COMMANDS = ['jira'];
+
+  let entries;
+  try {
+    entries = fs.readdirSync(binDir, { withFileTypes: true });
+  } catch {
+    entries = [];
+  }
+  const commands = entries
+    .map(entry => entry.name)
+    .filter(name => !name.startsWith('.'));
+
+  for (const command of REQUIRED_COMMANDS) {
+    if (!commands.includes(command)) {
+      failures.push(
+        `packages/full/bin/${command} is missing - the bundle must ship the command its ` +
+        `toolchain adapters invoke (see packages/infrastructure/skills/adapter-tracker-jira/adapter.yaml)`
+      );
+    }
+  }
+
+  let checked = 0;
+  for (const command of commands) {
+    const file = path.join(binDir, command);
+    let stat;
+    try {
+      stat = fs.statSync(file);
+    } catch {
+      failures.push(`packages/full/bin/${command} cannot be read`);
+      continue;
+    }
+    if (!stat.isFile()) {
+      failures.push(`packages/full/bin/${command} is not a regular file`);
+      continue;
+    }
+    if ((stat.mode & 0o111) === 0) {
+      failures.push(
+        `packages/full/bin/${command} is not executable - commit it with mode 0755 ` +
+        `(chmod +x packages/full/bin/${command})`
+      );
+      continue;
+    }
+    const source = fs.readFileSync(file, 'utf8');
+    if (!source.startsWith('#!/usr/bin/env node')) {
+      failures.push(
+        `packages/full/bin/${command} has no '#!/usr/bin/env node' shebang - a bundled ` +
+        `command runs without a node loader`
+      );
+      continue;
+    }
+    for (const specifier of bareSpecifiers(source)) {
+      if (BUILTIN_MODULES.has(specifier)) continue;
+      failures.push(
+        `packages/full/bin/${command} requires '${specifier}' - the bundle ships no such ` +
+        `dependency, keep bundled commands on node builtins`
+      );
+    }
+    checked++;
+  }
+
+  console.log(
+    `  ✓ ${checked}/${commands.length} packages/full/bin/ command(s) executable and dependency-free`
+  );
+  return failures;
+}
+
 /** Extensions treated as bundled code whose requires must resolve. */
 const BUNDLE_CODE_EXTENSIONS = new Set(['.js', '.cjs', '.mjs']);
 
@@ -1173,6 +1260,14 @@ function main() {
     errors++;
   });
 
+  // the commands the bundle puts on PATH inside an installed plugin
+  console.log('\nValidating packages/full/bin/ commands...');
+  const bundleBinaryFailures = validateBundleBinaries();
+  bundleBinaryFailures.forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
   // packages/full must be self-contained once the install flattens its symlinks
   console.log('\nValidating packages/full/ relative requires resolve inside the bundle...');
   const fullRequireFailures = validateFullBundleRequires();
@@ -1320,6 +1415,7 @@ module.exports = {
   validateFullSkillsMirror,
   validateFullCommandSkillsDirect,
   validateFullLibMirror,
+  validateBundleBinaries,
   validateFullBundleRequires,
   relativeSpecifiers,
   bundleRequireResolves,

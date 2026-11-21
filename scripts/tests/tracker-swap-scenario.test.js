@@ -205,7 +205,7 @@ function jiraStubSource({ showResponses = {}, listResponse = [], createdId = 'JI
     `const SHOW = ${JSON.stringify(showResponses)};`,
     `const LIST = ${JSON.stringify(listResponse)};`,
     "if (argv[0] === '--version') {",
-    "  process.stdout.write('jira stub 1.0.0\\n');",
+    "  process.stdout.write('jira 1.0.0 (ensemble-client)\\n');",
     "} else if (argv[0] === 'issues' && argv[1] === 'read') {",
     '  const id = argv[2];',
     '  const resp = SHOW[id];',
