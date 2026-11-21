@@ -296,7 +296,7 @@ describe('normalizeSegment() - Skip Commands', () => {
   });
 
   test('should skip typeset command', () => {
-    const result = normalizeSegment(['typeset', '-i', 'num']);
+    const result = normalizeSegment(['typeset', '-x', 'num']);
     expect(result).toBeNull();
   });
 });

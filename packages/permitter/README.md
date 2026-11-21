@@ -299,14 +299,17 @@ parseCommand('git add . && git commit -m "msg"');
 // ]
 ```
 
-#### `tokenize(command): string[]`
+#### `tokenize(command, options?): string[]`
 
-Tokenize a Bash command string with proper quote handling.
+Tokenize a Bash command string with proper quote handling. A `#` that begins a word starts a comment that runs to the end of its own line, and a backslash-newline is deleted as the shell does.
 
 **Parameters:**
 - `command` (string): Raw command string
+- `options.strict` (boolean, optional): Throw when a quote is left open instead of returning a best-effort token list. `parseCommand` always tokenizes strictly.
 
 **Returns:** Array of tokens
+
+**Throws:** `Error` for ANSI-C quoting (`$'...'`), unquoted parentheses and, when `strict`, an unterminated quote
 
 **Example:**
 ```javascript
@@ -326,6 +329,10 @@ Check for unsafe constructs that should cause deferral.
 
 **Throws:** `Error` if unsafe construct detected:
 - Command substitution: `$()` or backticks
+- Parameter expansion: `${...}`
+- ANSI-C quoting: `$'...'`
+- Arithmetic expansion: `$[...]` (it assigns like `$((...))`: `$[PATH=0]`)
+- An `IFS=` assignment
 - Heredocs: `<<`
 - Process substitution: `<()` or `>()`
 
@@ -346,6 +353,8 @@ Normalize a command segment by stripping wrappers, env vars, and redirections.
 - `tokens` (string[]): Token array for one command
 
 **Returns:** Normalized command object or null if skipped
+
+**Throws:** `Error` if an assignment to `PATH`, `IFS`, `BASH_ENV`, `ENV`, `LD_*` or `DYLD_*` would be dropped; if an assignment form is used that the parser cannot follow (`NAME+=value` or `NAME[i]=value` in front of a command; a subscript, nameref `-n`, integer `-i` or expansion-built name in `export`/`declare`/`typeset`/`local`/`unset`; a value containing `$`, `=`, `++` or `--` that is assigned in the current shell); if `set` is given an option other than a stricter-or-louder one (`-e`, `-u`, `-x`, `-v`, `-f`, `-C`, `-o pipefail`, ...); or if `env` is given an option other than `-i` and `-u NAME`
 
 ---
 
@@ -732,6 +741,15 @@ These scenarios are NOT in scope for Permitter to mitigate:
 | "Command substitution `` not supported" | Command contains backticks | Use simpler command form |
 | "Heredocs not supported" | Command contains `<<` | Use simpler command form |
 | "Process substitution not supported" | Command contains `<()` or `>()` | Use simpler command form |
+| "Dangerous variable assignment not supported: NAME" | Command assigns `PATH`, `IFS`, `BASH_ENV`, `ENV`, `LD_*` or `DYLD_*` | Run the command without the assignment |
+| "env option not supported: ..." | `env` was given an option other than `-i` or `-u NAME` | Drop the option, or run the command directly |
+| "Assignment form not supported: ..." / "Subscripted assignment not supported: ..." | `NAME+=value` or `NAME[i]=value` in front of a command, or a subscript in `export`/`declare`/`typeset`/`local` | Use a plain `NAME=value` |
+| "Assignment value not supported: ..." | An assignment that runs in the current shell has a value with `$`, `=`, `++` or `--` (bash can evaluate it as arithmetic, and an expansion can supply the assignment) | Put the assignment in front of the command: `NAME=value command` |
+| "declare option not supported: -n" (also `-i`, for `export`/`typeset`/`local`/`unset`) | Nameref or integer declaration | Drop the option |
+| "set option not supported: ..." / "set argument not supported: ..." | `set` was given an option other than a stricter-or-louder one (`-k`/`-o keyword` reads assignments among a command's arguments as environment assignments), or an expanded argument | Use `set -e`, `-u`, `-x`, `-o pipefail`, or drop the option |
+| "Arithmetic expansion $[...] not supported" | Command contains `$[` (it assigns like `$((...))`) | Use a simpler command form |
+| "Unbalanced quote not supported" | A quote is never closed | Close the quote |
+| "bash -c with a command the parser skips is not supported" | A `bash -c` / `sh -c` command contains `unset`, `set`, `export`, `local`, `declare`, a bare assignment or a lone redirection | Run that command outside the wrapper, or drop it |
 
 These commands will defer to Claude Code's normal permission flow.
 

@@ -19,6 +19,29 @@ const WRAPPER_COMMANDS = new Set(['timeout', 'time', 'nice', 'nohup', 'env']);
 // Commands that are skipped entirely
 const SKIP_COMMANDS = new Set(['export', 'set', 'unset', 'local', 'declare', 'typeset']);
 
+// Skipped commands whose arguments name variables (see assertSafeSkipCommand)
+const VARIABLE_COMMANDS = new Set(['export', 'unset', 'local', 'declare', 'typeset']);
+
+// `set` options that only make the shell stricter or louder, and the names
+// `-o` may take (see assertSafeSetCommand)
+const SAFE_SET_FLAGS_RE = /^[-+][euxvfC]*o?$/;
+const SAFE_SET_OPTION_NAMES = new Set(['errexit', 'nounset', 'xtrace', 'verbose', 'noglob', 'noclobber', 'pipefail']);
+
+// Environment variables that change how a command is resolved or parsed.
+// PATH controls executable lookup, LD_* / DYLD_* inject code into the
+// process, IFS changes how words are split, BASH_ENV / ENV make a shell
+// source a file before it runs anything. A command that assigns one of them
+// is refused instead of having the assignment silently stripped.
+const DANGEROUS_ASSIGNMENT_VARS = new Set(['PATH', 'IFS', 'BASH_ENV', 'ENV']);
+
+// An assignment word as bash reads it: NAME, optional array subscripts, `=` or
+// the append form `+=`, then the value. Captures: name, subscripts, value.
+const ASSIGNMENT_WORD_RE = /^([A-Za-z_][A-Za-z0-9_]*)((?:\[[^\]]*\])*)\+?=([\s\S]*)$/;
+
+// fd duplication/close (2>&1, >&2, <&0, 2>&-). It only is one when a word
+// boundary follows: for bash `>&1x` redirects to the file `1x`.
+const FD_DUPLICATION_RE = /^(>>?|<)&(\d+|-)(?=$|[ \t\n;&|<>()])/;
+
 // Operators that split commands
 // '&' (background) and '|&' (pipe stdout+stderr) also start a new command.
 const OPERATORS = new Set(['&&', '||', ';', '|', '&', '|&']);
@@ -43,11 +66,19 @@ const State = {
  * - Double-quoted strings (backslash escaping)
  * - Unquoted whitespace as token separator
  * - Multi-character operators (&&, ||)
+ * - Line continuations: backslash-newline is deleted, as the shell does
+ * - Comments: a '#' that begins a word runs to the end of its line only
+ *
+ * ANSI-C quoting ($'...') is not implemented and is refused.
  *
  * @param {string} command - Raw command string
+ * @param {{strict?: boolean}} [options] - strict: refuse a command that
+ *   leaves a quote open (an open quote swallows the rest of the command, so
+ *   its words cannot be classified). Lenient by default.
  * @returns {string[]} Array of tokens
+ * @throws {Error} If the command uses a construct the tokenizer cannot read
  */
-function tokenize(command) {
+function tokenize(command, options = {}) {
   if (!command || typeof command !== 'string') {
     return [];
   }
@@ -57,6 +88,7 @@ function tokenize(command) {
   let state = State.NORMAL;
   let prevState = State.NORMAL;
   let inQuotedSection = false; // Track if we've been in a quoted section for this token
+  let prevChar = ''; // Previous character the shell reads; a line continuation is not one
 
   for (let i = 0; i < command.length; i++) {
     const char = command[i];
@@ -64,7 +96,18 @@ function tokenize(command) {
 
     switch (state) {
       case State.NORMAL:
-        if (char === "'") {
+        if (char === '\\' && nextChar === '\n') {
+          // Line continuation: the shell deletes the backslash and the
+          // newline before it splits words or looks for a comment, so it is
+          // neither an escaped character nor a word boundary.
+          i++;
+          continue;
+        } else if (char === '$' && nextChar === "'") {
+          // ANSI-C quoting lets an escaped quote sit inside the string, so
+          // this tokenizer would close the quote in the wrong place and hide
+          // the rest of the command: refuse it instead of guessing.
+          throw new Error("ANSI-C quoting $'...' not supported");
+        } else if (char === "'") {
           // Enter single-quote mode
           state = State.SINGLE_QUOTE;
           inQuotedSection = true;
@@ -94,9 +137,23 @@ function tokenize(command) {
             current = '';
             inQuotedSection = false;
           }
-        } else if ((char === '>' || char === '<') && /^(>>?|<)&(\d+|-)/.test(command.slice(i))) {
+        } else if (char === '#' && current === '' && (prevChar === '' || /[ \t\n;|&]/.test(prevChar))) {
+          // A '#' that begins a word starts a comment that runs to the end of
+          // its line. The newline is left in place so it still separates
+          // commands: a later line is never swallowed by a comment, and a
+          // quote character inside the comment is never read as a quote.
+          // Only space, tab and newline separate words in the shell, so a '#'
+          // after any other character (non-breaking space, vertical tab,
+          // form feed, carriage return) is an ordinary argument and the rest
+          // of the line stays a separate command.
+          while (i < command.length && command[i] !== '\n') {
+            i++;
+          }
+          i--; // the loop increment lands back on the newline (or the end)
+          continue;
+        } else if ((char === '>' || char === '<') && FD_DUPLICATION_RE.test(command.slice(i))) {
           // fd duplication/close such as 2>&1, >&2, <&0, 2>&-: no file involved
-          const m = /^(>>?|<)&(\d+|-)/.exec(command.slice(i));
+          const m = FD_DUPLICATION_RE.exec(command.slice(i));
           if (m[2] !== '-' && !/^[012]$/.test(m[2])) {
             // fd N>2 may be an inherited open file; its target is not analyzable
             throw new Error('Redirection to an arbitrary file descriptor not supported');
@@ -203,6 +260,9 @@ function tokenize(command) {
         if (char === '"') {
           // Exit double-quote mode
           state = State.NORMAL;
+        } else if (char === '\\' && nextChar === '\n') {
+          i++; // line continuation: the shell deletes it inside double quotes too
+          continue;
         } else if (char === '\\') {
           // Escape handling inside double quotes
           prevState = state;
@@ -218,6 +278,13 @@ function tokenize(command) {
         state = prevState;
         break;
     }
+
+    prevChar = command[i];
+  }
+
+  // An open quote swallows the rest of the command: a strict caller refuses it.
+  if (options.strict && (state === State.ESCAPE ? prevState : state) !== State.NORMAL) {
+    throw new Error('Unbalanced quote not supported');
   }
 
   // Handle remaining token
@@ -233,6 +300,9 @@ function tokenize(command) {
  *
  * Detects:
  * - Command substitution: $() and ``
+ * - Parameter expansion: ${...}
+ * - ANSI-C quoting: $'...'
+ * - IFS assignments (IFS=...) that can remove word separators
  * - Heredocs: <<
  * - Process substitution: <() and >()
  *
@@ -252,6 +322,28 @@ function checkUnsafe(command) {
   // Command substitution: backticks
   if (/`/.test(command)) {
     throw new Error('Command substitution `` not supported');
+  }
+
+  // Parameter expansion: ${...}
+  if (/\$\{/.test(command)) {
+    throw new Error('Parameter expansion ${...} not supported');
+  }
+
+  // ANSI-C quoting: $'...' can hide separators and command words
+  if (/\$'/.test(command)) {
+    throw new Error("ANSI-C quoting $'...' not supported");
+  }
+
+  // Arithmetic expansion: $[...] is the old form of $((...)) and assigns too
+  // ($[PATH=0] changes PATH for every later command)
+  if (/\$\[/.test(command)) {
+    throw new Error('Arithmetic expansion $[...] not supported');
+  }
+
+  // IFS assignment removes word separators (e.g. rm$IFS-rf), so any command
+  // assigning IFS is not auto-allowed
+  if (/^IFS=/.test(command) || /[;&|\n\s(\[]IFS=/.test(command)) {
+    throw new Error('IFS assignment not supported');
   }
 
   // Heredocs: <<
@@ -335,6 +427,163 @@ function isEnvAssignment(token) {
 }
 
 /**
+ * Check if a variable must not be assigned by a command.
+ *
+ * @param {string} name - Variable name without '='
+ * @returns {boolean} True if assigning the variable is unsafe
+ */
+function isDangerousAssignmentVar(name) {
+  return DANGEROUS_ASSIGNMENT_VARS.has(name) ||
+    name.startsWith('LD_') ||
+    name.startsWith('DYLD_');
+}
+
+/**
+ * Refuse an assignment to a variable that changes command behaviour.
+ *
+ * @param {string} name - Variable name without '='
+ * @throws {Error} If the variable must not be assigned
+ */
+function assertSafeAssignmentVar(name) {
+  if (isDangerousAssignmentVar(name)) {
+    throw new Error(`Dangerous variable assignment not supported: ${name}`);
+  }
+}
+
+/**
+ * Refuse a VAR=value token that changes command behaviour.
+ *
+ * @param {string} token - VAR=value token
+ * @throws {Error} If the assignment targets a dangerous variable
+ */
+function assertSafeAssignment(token) {
+  assertSafeAssignmentVar(token.slice(0, token.indexOf('=')));
+}
+
+/**
+ * Refuse an assignment value that bash could evaluate as an assignment.
+ *
+ * The value assigned to a variable with the integer attribute (`declare -i`)
+ * or to a dynamic variable such as RANDOM is an arithmetic expression, so
+ * `RANDOM=1,PATH=0` assigns PATH. That only matters where the assignment runs
+ * in the current shell (a command that is nothing but assignments, or an
+ * assignment given to a skipped declaration). An expression assigns through
+ * `=` (every compound operator ends in it), `++` or `--`, and an expansion can
+ * supply any of them (`set -- PATH=0; RANDOM=$1`), so a `$` is refused too.
+ * A temporary assignment in front of a command
+ * (`NODE_OPTIONS=--max-old-space-size=4096 npm test`) is not evaluated.
+ *
+ * @param {string} token - NAME=value or NAME+=value token
+ * @param {string} value - Value part of the token
+ * @throws {Error} If the value could assign a variable when evaluated
+ */
+function assertInertValue(token, value) {
+  if (/[$=]|\+\+|--/.test(value)) {
+    throw new Error(`Assignment value not supported: ${token}`);
+  }
+}
+
+/**
+ * Refuse leading assignments that run in the current shell if a value could
+ * assign a variable when evaluated.
+ *
+ * @param {string[]} assignments - Leading NAME=value tokens of a segment
+ * @throws {Error} If a value could assign a variable when evaluated
+ */
+function assertInertValues(assignments) {
+  for (const token of assignments) {
+    assertInertValue(token, token.slice(token.indexOf('=') + 1));
+  }
+}
+
+/**
+ * Refuse a `set` that changes how the rest of the line is read.
+ *
+ * Only options that make the shell stricter or louder pass (`set -e`,
+ * `set -euo pipefail`, `set +x`). `-k` (`-o keyword`) reads an assignment among
+ * a command's arguments as an environment assignment (`set -k; git status
+ * LD_PRELOAD=/x.so`), `-a` and `-o posix` change how later assignments
+ * behave and `-n` / `-r` make the rest of the line unreadable. A positional
+ * parameter that is expanded could be any of those (`set -- -k; set $1`), so
+ * it is refused.
+ *
+ * @param {string[]} tokens - Tokens of the segment, first token is `set`
+ * @throws {Error} If the command changes how the shell reads later commands
+ */
+function assertSafeSetCommand(tokens) {
+  let i = 1;
+
+  // Options run up to `--` or the first positional parameter
+  for (; i < tokens.length && tokens[i] !== '--' && /^[-+]./.test(tokens[i]); i++) {
+    if (!SAFE_SET_FLAGS_RE.test(tokens[i])) {
+      throw new Error(`set option not supported: ${tokens[i]}`);
+    }
+    if (tokens[i].endsWith('o') && i + 1 < tokens.length) {
+      i++;
+      if (!SAFE_SET_OPTION_NAMES.has(tokens[i])) {
+        throw new Error(`set option not supported: ${tokens[i - 1]} ${tokens[i]}`);
+      }
+    }
+  }
+
+  for (const token of tokens.slice(tokens[i] === '--' ? i + 1 : i)) {
+    if (/[$`{}*?[\]~]/.test(token)) {
+      throw new Error(`set argument not supported: ${token}`);
+    }
+  }
+}
+
+/**
+ * Refuse a skipped command that changes a variable the parser cannot trust.
+ *
+ * Skipped commands are never classified, yet they change the environment of
+ * every command that follows them on the same line. `export PATH=/evil`,
+ * `declare IFS=$x`, `export PATH+=:/evil` and `unset PATH` are therefore
+ * refused instead of being skipped. So is naming a dangerous variable at all
+ * (`declare -a PATH` turns it into an array, after which the shell finds
+ * commands in the current directory) and every way to reach one without
+ * naming it: a nameref (`declare -n p=PATH; p=/evil`), the integer attribute
+ * (`declare -i n; n=PATH=0`), a subscript (`declare PATH[0]=/evil`,
+ * `declare a[PATH=0]=x`), a value that is an assignment
+ * (`export RANDOM=1,PATH=0`) and a name built by expansion (`export $v`,
+ * `export {PATH,X}=/evil`). `set` is held to assertSafeSetCommand.
+ *
+ * @param {string[]} tokens - Tokens of the segment, first token is the command
+ * @throws {Error} If the command changes a dangerous variable
+ */
+function assertSafeSkipCommand(tokens) {
+  const command = tokens[0];
+
+  if (command === 'set') {
+    assertSafeSetCommand(tokens);
+  }
+
+  for (const token of tokens.slice(1)) {
+    const assignment = ASSIGNMENT_WORD_RE.exec(token);
+
+    if (assignment) {
+      assertSafeAssignmentVar(assignment[1]);
+      if (VARIABLE_COMMANDS.has(command)) {
+        if (assignment[2]) {
+          throw new Error(`Subscripted assignment not supported: ${token}`);
+        }
+        assertInertValue(token, assignment[3]);
+      }
+    } else if (VARIABLE_COMMANDS.has(command)) {
+      if (/^[-+][A-Za-z]+$/.test(token)) {
+        if (/[ni]/.test(token)) {
+          throw new Error(`${command} option not supported: ${token}`);
+        }
+      } else if (/[$`{}*?[\]~]/.test(token)) {
+        throw new Error(`${command} argument not supported: ${token}`);
+      } else if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(token)) {
+        assertSafeAssignmentVar(token);
+      }
+    }
+  }
+}
+
+/**
  * Check if a token is a redirection operator.
  *
  * @param {string} token - Token to check
@@ -350,9 +599,11 @@ function isRedirection(token) {
  * wrappers, skip commands, background operator, and redirections.
  *
  * @param {string[]} tokens - Token array for one command (will be mutated)
+ * @param {{expandWrappers?: boolean}} [options] - expandWrappers:false leaves a
+ *   bash/sh -c wrapper unexpanded (parseCommand() classifies every inner segment itself)
  * @returns {{executable: string, args: string}|null} Normalized command or null if skipped
  */
-function normalizeSegment(tokens) {
+function normalizeSegment(tokens, options = {}) {
   if (!tokens || tokens.length === 0) {
     return null;
   }
@@ -360,17 +611,34 @@ function normalizeSegment(tokens) {
   // Clone to avoid mutating original
   tokens = [...tokens];
 
-  // Strip leading environment variable assignments (KEY=value)
+  // Strip leading environment variable assignments (KEY=value). An assignment
+  // that changes how the command is resolved is refused, not stripped.
+  const assignments = [];
   while (tokens.length > 0 && isEnvAssignment(tokens[0])) {
-    tokens.shift();
+    assertSafeAssignment(tokens[0]);
+    assignments.push(tokens.shift());
   }
 
+  // An assignment word the loop above did not strip (NAME+=value, NAME[i]=value)
+  // is a form it cannot judge: refuse it instead of reading it as a command name.
+  if (tokens.length > 0 && ASSIGNMENT_WORD_RE.test(tokens[0])) {
+    throw new Error(`Assignment form not supported: ${tokens[0]}`);
+  }
+
+  // Nothing but assignments: they run in the current shell, so a value that
+  // could assign a variable when evaluated is refused.
   if (tokens.length === 0) {
+    assertInertValues(assignments);
     return null;
   }
 
-  // Check if command should be skipped (export, set, etc.)
+  // Check if command should be skipped (export, set, etc.). A skipped
+  // command still changes the environment of every command that follows it
+  // on the same line, so an assignment to a variable the parser cannot trust
+  // is refused instead of being skipped.
   if (SKIP_COMMANDS.has(tokens[0])) {
+    assertInertValues(assignments);
+    assertSafeSkipCommand(tokens);
     return null;
   }
 
@@ -407,16 +675,40 @@ function normalizeSegment(tokens) {
         tokens.shift(); // nice -10 format
       }
     } else if (wrapper === 'env') {
-      // env can have VAR=value pairs before the command
-      while (tokens.length > 0 && isEnvAssignment(tokens[0])) {
-        tokens.shift();
-      }
-      // env can also have flags like -i, -u
-      while (tokens.length > 0 && tokens[0].startsWith('-')) {
-        const flag = tokens.shift();
-        if (flag === '-u' && tokens.length > 0) {
-          tokens.shift(); // unset var name
+      // env takes options and VAR=value pairs before the command it runs.
+      // Only the forms whose effect is understood are stripped: -i (ignore
+      // the environment) and -u NAME (unset a variable). Every other option
+      // (-C/--chdir, -S/--split-string, -0, -v, --, ...) can change what is
+      // actually executed, so the segment is refused instead.
+      while (tokens.length > 0) {
+        const token = tokens[0];
+
+        if (isEnvAssignment(token)) {
+          assertSafeAssignment(token);
+          tokens.shift();
+          continue;
         }
+
+        if (!token.startsWith('-')) {
+          break; // the command env should run
+        }
+
+        if (token === '-i') {
+          tokens.shift();
+          continue;
+        }
+
+        if (token === '-u') {
+          tokens.shift();
+          const name = tokens.length > 0 ? tokens.shift() : '';
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+            throw new Error('env option not supported: -u requires a variable name');
+          }
+          assertSafeAssignmentVar(name);
+          continue;
+        }
+
+        throw new Error(`env option not supported: ${token}`);
       }
     }
     // time and nohup don't have additional arguments to strip
@@ -426,12 +718,15 @@ function normalizeSegment(tokens) {
     return null;
   }
 
-  // Handle bash -c "command" - extract the inner command
-  if (tokens[0] === 'bash' || tokens[0] === 'sh') {
-    // Look for -c flag
+  // Handle bash -c "command" - extract the FIRST inner command. This is the
+  // documented single-segment contract for direct callers. parseCommand() opts
+  // out ({ expandWrappers: false }) and classifies every inner segment through
+  // classifySegment() instead; a wrapper that reaches here from there (e.g.
+  // after an env/sudo prefix) stays a plain `bash` executable and is refused
+  // by the allowlist rather than being reduced to its first inner segment.
+  if (options.expandWrappers !== false && (tokens[0] === 'bash' || tokens[0] === 'sh')) {
     const cIndex = tokens.indexOf('-c');
     if (cIndex !== -1 && cIndex + 1 < tokens.length) {
-      // The argument after -c is the command to parse
       const innerCommand = tokens[cIndex + 1];
 
       // Handle empty inner command
@@ -439,14 +734,11 @@ function normalizeSegment(tokens) {
         return null;
       }
 
-      // Recursively tokenize and normalize the inner command
-      const innerTokens = tokenize(innerCommand);
-      const innerSegments = splitByOperators(innerTokens);
-
-      // If there are multiple commands in the inner shell, we need to return the first
-      // and the caller should handle the rest
+      // Strict: an unterminated quote in the inner command hides words just
+      // the same as one in the outer command.
+      const innerSegments = splitByOperators(tokenize(innerCommand, { strict: true }));
       if (innerSegments.length > 0) {
-        return normalizeSegment(innerSegments[0]);
+        return normalizeSegment(innerSegments[0], options);
       }
       return null;
     }
@@ -466,6 +758,12 @@ function normalizeSegment(tokens) {
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
 
+    // fd duplication/close (2>&1, >&2, <&0, 2>&-) has no target token, so it
+    // must not swallow the token after it: that token is part of the command
+    if (/^\d*(>>?|<)&(\d+|-)$/.test(token)) {
+      continue;
+    }
+
     if (isRedirection(token)) {
       // Skip the redirection operator
       // Also skip the next token if it's a filename (not a command or flag)
@@ -475,15 +773,12 @@ function normalizeSegment(tokens) {
       continue;
     }
 
-    // Handle combined redirections like 2>&1
-    if (token === '2>&1' || /^\d+>&\d+$/.test(token)) {
-      continue;
-    }
-
     cleaned.push(token);
   }
 
+  // Only redirections follow the assignments: they run in the current shell
   if (cleaned.length === 0) {
+    assertInertValues(assignments);
     return null;
   }
 
@@ -491,6 +786,69 @@ function normalizeSegment(tokens) {
     executable: cleaned[0],
     args: cleaned.slice(1).join(' ')
   };
+}
+
+/**
+ * Classify one command segment, expanding `bash -c`/`sh -c` wrappers into the
+ * full list of inner segments so no hidden segment escapes matching.
+ *
+ * normalizeSegment() keeps its documented single-segment contract; this helper
+ * is what parseCommand() uses so every inner segment is checked.
+ *
+ * @param {string[]} tokens - Token array for one command segment
+ * @returns {{executable: string, args: string}[]} Normalized commands (0..n)
+ */
+function classifySegment(tokens) {
+  // Handle bash -c "command" / sh -c "command": every inner segment counts
+  if (tokens.length > 0 && (tokens[0] === 'bash' || tokens[0] === 'sh')) {
+    const cIndex = tokens.indexOf('-c');
+    if (cIndex !== -1 && cIndex + 1 < tokens.length) {
+      const innerCommand = tokens[cIndex + 1];
+
+      // Empty inner command: wrapper alone is not auto-allowed
+      if (!innerCommand || innerCommand.trim() === '') {
+        return [];
+      }
+
+      // Strict: an unterminated quote in the inner command hides words just
+      // the same as one in the outer command.
+      const innerSegments = splitByOperators(tokenize(innerCommand, { strict: true }));
+
+      const results = [];
+      for (const innerSegment of innerSegments) {
+        const classified = classifySegment(innerSegment);
+
+        // A segment the parser skips (unset, set, export, local, declare, a
+        // bare assignment, a lone redirection) is not "nothing to run" inside
+        // a wrapper. Dropping it would judge the wrapper by the segments that
+        // are left, so `bash -c "unset FOO; npm test"` would pass on `npm test`
+        // alone, where the parser used to ask. Refuse the whole wrapper.
+        if (classified.length === 0) {
+          throw new Error('bash -c with a command the parser skips is not supported');
+        }
+        results.push(...classified);
+      }
+      return results;
+    }
+  }
+
+  const normalized = normalizeSegment(tokens, { expandWrappers: false });
+  return normalized ? [normalized] : [];
+}
+
+/**
+ * Strip the blanks bash treats as word separators from both ends.
+ *
+ * String.trim() also strips characters bash keeps inside a word (no-break
+ * space, vertical tab, form feed, carriage return, byte order mark, ...).
+ * Trimming those would move a following '#' to the start of the command, where
+ * the tokenizer reads the rest of the line as a comment although bash runs it.
+ *
+ * @param {string} command - Raw command string
+ * @returns {string} Command without leading or trailing space, tab and newline
+ */
+function trimShellBlanks(command) {
+  return command.replace(/^[ \t\n]+/, '').replace(/[ \t\n]+$/, '');
 }
 
 /**
@@ -511,7 +869,7 @@ function parseCommand(command) {
     return [];
   }
 
-  const trimmed = command.trim();
+  const trimmed = trimShellBlanks(command);
   if (!trimmed) {
     return [];
   }
@@ -519,8 +877,9 @@ function parseCommand(command) {
   // Check for unsafe constructs first
   checkUnsafe(trimmed);
 
-  // Tokenize the command
-  const tokens = tokenize(trimmed);
+  // Strict: an unterminated quote makes the word boundaries unknowable, so
+  // the command is refused rather than classified from a guess.
+  const tokens = tokenize(trimmed, { strict: true });
   if (tokens.length === 0) {
     return [];
   }
@@ -533,10 +892,7 @@ function parseCommand(command) {
   // Normalize each segment
   const commands = [];
   for (const segment of segments) {
-    const normalized = normalizeSegment(segment);
-    if (normalized) {
-      commands.push(normalized);
-    }
+    commands.push(...classifySegment(segment));
   }
 
   return commands;
@@ -553,5 +909,6 @@ module.exports = {
   WRAPPER_COMMANDS,
   SKIP_COMMANDS,
   OPERATORS,
+  DANGEROUS_ASSIGNMENT_VARS,
   State
 };
