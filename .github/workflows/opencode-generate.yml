@@ -7,6 +7,10 @@ on:
     branches:
       - 'feature/opencode-*'
 
+concurrency:
+  group: opencode-generate-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   generate:
     runs-on: ubuntu-latest

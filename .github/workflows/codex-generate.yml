@@ -6,6 +6,10 @@ on:
   push:
     branches: [main, dev]
 
+concurrency:
+  group: codex-generate-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   generate:
     runs-on: ubuntu-latest
