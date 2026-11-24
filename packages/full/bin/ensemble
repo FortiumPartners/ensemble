@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * `ensemble` - the deterministic engine CLI (TRD-2026-d571763f, TRD-004).
+ *
+ * Shipped in the `full` bundle (Claude Code puts a plugin's `bin/` directory on PATH), so an
+ * installed plugin runs `ensemble --describe` with no `npm install`. The launcher holds no
+ * logic of its own: it calls the bundled entry point's `run`, which writes the envelope and
+ * sets the exit code. Only node builtins and relative bundle paths are used, so the
+ * dereferenced install copy resolves exactly as the repository checkout does.
+ */
+
+require('../lib/ensemble-cli.js').run(process.argv.slice(2));

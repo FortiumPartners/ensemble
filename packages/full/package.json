@@ -21,6 +21,7 @@
     "directory": "packages/full"
   },
   "bin": {
+    "ensemble": "bin/ensemble",
     "jira": "bin/jira"
   },
   "devDependencies": {

@@ -320,13 +320,17 @@ function validateFullLibReferences(packagesDir = PACKAGES_DIR) {
  * whose command the bundle does not ship fails every tracker call with
  * `MISSING_BINARY: jira`.
  *
+ * `ensemble` is required by name for the same reason (TRD-2026-d571763f, TRD-004): the engine
+ * CLI is invoked as a bare `ensemble` command from an installed plugin, which has no npm
+ * install to fall back on.
+ *
  * @param {string} fullDir packages/full directory
  * @returns {string[]} Failure messages, empty when the bundle is well formed
  */
 function validateBundleBinaries(fullDir = path.join(PACKAGES_DIR, 'full')) {
   const failures = [];
   const binDir = path.join(fullDir, 'bin');
-  const REQUIRED_COMMANDS = ['jira'];
+  const REQUIRED_COMMANDS = ['ensemble', 'jira'];
 
   let entries;
   try {
