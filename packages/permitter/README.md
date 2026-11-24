@@ -354,7 +354,7 @@ Normalize a command segment by stripping wrappers, env vars, and redirections.
 
 **Returns:** Normalized command object or null if skipped
 
-**Throws:** `Error` if an assignment to `PATH`, `IFS`, `BASH_ENV`, `ENV`, `LD_*` or `DYLD_*` would be dropped; if an assignment form is used that the parser cannot follow (`NAME+=value` or `NAME[i]=value` in front of a command; a subscript, nameref `-n`, integer `-i` or expansion-built name in `export`/`declare`/`typeset`/`local`/`unset`; a value containing `$`, `=`, `++` or `--` that is assigned in the current shell); if `set` is given an option other than a stricter-or-louder one (`-e`, `-u`, `-x`, `-v`, `-f`, `-C`, `-o pipefail`, ...); or if `env` is given an option other than `-i` and `-u NAME`
+**Throws:** `Error` if an assignment to `PATH`, `IFS`, `BASH_ENV`, `ENV`, `ZDOTDIR`, `LD_*` or `DYLD_*` would be dropped; if an assignment form is used that the parser cannot follow (`NAME+=value` or `NAME[i]=value` in front of a command; a subscript, nameref `-n`, integer `-i` or expansion-built name in `export`/`declare`/`typeset`/`local`/`unset`; a value containing `$`, `=`, `++` or `--` that is assigned in the current shell); if `set` is given an option other than a stricter-or-louder one (`-e`, `-u`, `-x`, `-v`, `-f`, `-C`, `-o pipefail`, ...); if `env` is given an option other than `-i` and `-u NAME`; if a shell invocation cannot be read (`shell invocation not supported`); if a shell `-c` sits behind a prefix (`shell -c behind a wrapper not supported`); or if a shell `-c` wrapper holds more than one inner command (`shell -c with more than one inner command is not supported`)
 
 ---
 
@@ -741,7 +741,7 @@ These scenarios are NOT in scope for Permitter to mitigate:
 | "Command substitution `` not supported" | Command contains backticks | Use simpler command form |
 | "Heredocs not supported" | Command contains `<<` | Use simpler command form |
 | "Process substitution not supported" | Command contains `<()` or `>()` | Use simpler command form |
-| "Dangerous variable assignment not supported: NAME" | Command assigns `PATH`, `IFS`, `BASH_ENV`, `ENV`, `LD_*` or `DYLD_*` | Run the command without the assignment |
+| "Dangerous variable assignment not supported: NAME" | Command assigns `PATH`, `IFS`, `BASH_ENV`, `ENV`, `ZDOTDIR`, `LD_*` or `DYLD_*` | Run the command without the assignment |
 | "env option not supported: ..." | `env` was given an option other than `-i` or `-u NAME` | Drop the option, or run the command directly |
 | "Assignment form not supported: ..." / "Subscripted assignment not supported: ..." | `NAME+=value` or `NAME[i]=value` in front of a command, or a subscript in `export`/`declare`/`typeset`/`local` | Use a plain `NAME=value` |
 | "Assignment value not supported: ..." | An assignment that runs in the current shell has a value with `$`, `=`, `++` or `--` (bash can evaluate it as arithmetic, and an expansion can supply the assignment) | Put the assignment in front of the command: `NAME=value command` |
@@ -749,7 +749,9 @@ These scenarios are NOT in scope for Permitter to mitigate:
 | "set option not supported: ..." / "set argument not supported: ..." | `set` was given an option other than a stricter-or-louder one (`-k`/`-o keyword` reads assignments among a command's arguments as environment assignments), or an expanded argument | Use `set -e`, `-u`, `-x`, `-o pipefail`, or drop the option |
 | "Arithmetic expansion $[...] not supported" | Command contains `$[` (it assigns like `$((...))`) | Use a simpler command form |
 | "Unbalanced quote not supported" | A quote is never closed | Close the quote |
-| "bash -c with a command the parser skips is not supported" | A `bash -c` / `sh -c` command contains `unset`, `set`, `export`, `local`, `declare`, a bare assignment or a lone redirection | Run that command outside the wrapper, or drop it |
+| "bash -c with a command the parser skips is not supported" | A shell `-c` command (`bash`, `sh`, `zsh`, `dash`, `ksh`, `ash`, `mksh`) contains `unset`, `set`, `export`, `local`, `declare`, a bare assignment or a lone redirection | Run that command outside the wrapper, or drop it |
+| "shell invocation not supported" | The shell was given an option the parser cannot read: an unknown option (`bash --unknown-option -c "..."`), a startup file it would read before it runs the command (`bash --rcfile ./payload.sh -ic "..."`), or an option whose value sits inside a cluster (`bash -eo pipefail -c "..."`) | Run the command without that option, or without the wrapper |
+| "shell -c behind a wrapper not supported" | A shell `-c` sits behind a prefix (`sudo`, `doas`, `command`, `env`, `timeout`, `time`, `nice`, `nohup`), so the command line inside the wrapper cannot be classified | Run the shell command without the prefix |
 
 These commands will defer to Claude Code's normal permission flow.
 

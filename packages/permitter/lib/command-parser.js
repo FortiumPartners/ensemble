@@ -16,6 +16,40 @@
 // Commands that are wrappers and should be stripped
 const WRAPPER_COMMANDS = new Set(['timeout', 'time', 'nice', 'nohup', 'env']);
 
+// Commands that run another command with privileges or in another shell
+// context. A shell -c behind one of them hides the command line it runs from
+// the allowlist, so it is refused instead of being judged by the prefix.
+const COMMAND_PREFIX_COMMANDS = new Set(['sudo', 'doas', 'command']);
+
+// Shells that take a command line as the argument after -c. That command line
+// is a command line in its own right, so it is parsed and judged like the
+// outer one instead of hiding behind the shell.
+const SHELL_EXECUTABLES = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh', 'ash', 'mksh']);
+
+// Directories whose executables are the system shells. A shell called by a
+// path outside them is not trusted to be a shell: ./tools/bash is a program
+// that happens to be called bash, and expanding it would judge the inner
+// command of a program that is not the shell.
+const TRUSTED_SHELL_DIRECTORIES = new Set(['/bin', '/usr/bin', '/sbin', '/usr/sbin']);
+
+// Long shell options that name a file the shell reads before it runs the
+// command. The path is chosen by whoever wrote the command, so the file is
+// not judged: the invocation is refused instead.
+const SHELL_STARTUP_FILE_OPTIONS = new Set(['--rcfile', '--init-file']);
+
+// Short shell options that take no value. A letter outside this set cannot
+// be read with certainty, so the invocation that carries it is refused.
+const SHELL_SHORT_FLAGS = new Set([
+  'a', 'B', 'e', 'h', 'H', 'i', 'I', 'l', 'm', 'n', 'p', 'r', 's', 't', 'u', 'v', 'V', 'x'
+]);
+
+// Long shell options that take no value.
+const SHELL_LONG_FLAGS = new Set([
+  '--debugger', '--hashall', '--help', '--histexpand', '--ignore-env', '--noediting',
+  '--nolog', '--noprofile', '--norc', '--null-command', '--onecmd', '--posix',
+  '--privileged', '--rbash', '--restricted', '--verbose', '--version'
+]);
+
 // Commands that are skipped entirely
 const SKIP_COMMANDS = new Set(['export', 'set', 'unset', 'local', 'declare', 'typeset']);
 
@@ -32,7 +66,7 @@ const SAFE_SET_OPTION_NAMES = new Set(['errexit', 'nounset', 'xtrace', 'verbose'
 // process, IFS changes how words are split, BASH_ENV / ENV make a shell
 // source a file before it runs anything. A command that assigns one of them
 // is refused instead of having the assignment silently stripped.
-const DANGEROUS_ASSIGNMENT_VARS = new Set(['PATH', 'IFS', 'BASH_ENV', 'ENV']);
+const DANGEROUS_ASSIGNMENT_VARS = new Set(['PATH', 'IFS', 'BASH_ENV', 'ENV', 'ZDOTDIR']);
 
 // An assignment word as bash reads it: NAME, optional array subscripts, `=` or
 // the append form `+=`, then the value. Captures: name, subscripts, value.
@@ -595,6 +629,96 @@ function isRedirection(token) {
 }
 
 /**
+ * Whether a token names a shell that takes a command line after -c.
+ *
+ * A bare name is looked up in PATH like any other command. A path is only
+ * trusted when it points into a system directory: /bin/bash is bash,
+ * ./tools/bash is whatever the working directory holds.
+ *
+ * @param {string} token - Token to check
+ * @returns {boolean} True when the token names a shell
+ */
+function isShellExecutable(token) {
+  if (!token) {
+    return false;
+  }
+  const text = String(token);
+  const name = text.split('/').pop();
+  if (!SHELL_EXECUTABLES.has(name)) {
+    return false;
+  }
+  if (!text.includes('/')) {
+    return true;
+  }
+  if (!text.startsWith('/')) {
+    return false;
+  }
+  const directory = text.slice(0, text.lastIndexOf('/'));
+  return TRUSTED_SHELL_DIRECTORIES.has(directory);
+}
+
+/**
+ * How a shell invocation reads.
+ *
+ * - 'command': the shell runs the word that follows its -c option.
+ * - 'script': the shell runs a script; there is no command string.
+ * - 'uncertain': the options cannot be read with certainty, so the
+ *   invocation is refused instead of guessed at.
+ *
+ * @param {string[]} tokens - Tokens of the command segment
+ * @param {number} shellIndex - Index of the shell token
+ * @returns {{kind: string, commandIndex: number}} How the invocation reads
+ */
+function readShellInvocation(tokens, shellIndex) {
+  for (let i = shellIndex + 1; i < tokens.length; i++) {
+    const token = tokens[i];
+
+    if (token === '--') {
+      // The words after -- are operands: the shell runs the first as a script.
+      return { kind: 'script', commandIndex: -1 };
+    }
+
+    if (!token.startsWith('-') && !token.startsWith('+')) {
+      // The first word that is not an option is the script the shell runs.
+      return { kind: 'script', commandIndex: -1 };
+    }
+
+    if (token.startsWith('--')) {
+      if (SHELL_STARTUP_FILE_OPTIONS.has(token)) {
+        return { kind: 'uncertain', commandIndex: -1 };
+      }
+      if (!SHELL_LONG_FLAGS.has(token)) {
+        return { kind: 'uncertain', commandIndex: -1 };
+      }
+      continue;
+    }
+
+    // A short option cluster (-e, -x, -lc): every letter is a flag but 'c',
+    // which names the command string that follows the cluster.
+    const letters = token.slice(1);
+    if (letters.includes('c')) {
+      return { kind: 'command', commandIndex: i };
+    }
+    if (letters.includes('o') || letters.includes('O')) {
+      // -o and -O name the option to set: on their own the value is the
+      // next word, inside a cluster its place is not clear.
+      if (token.length === 2) {
+        i++;
+        continue;
+      }
+      return { kind: 'uncertain', commandIndex: -1 };
+    }
+    for (const letter of letters) {
+      if (!SHELL_SHORT_FLAGS.has(letter)) {
+        return { kind: 'uncertain', commandIndex: -1 };
+      }
+    }
+  }
+  // No -c option: the shell reads the command from its input.
+  return { kind: 'script', commandIndex: -1 };
+}
+
+/**
  * Normalize a command segment by stripping environment variables,
  * wrappers, skip commands, background operator, and redirections.
  *
@@ -643,8 +767,10 @@ function normalizeSegment(tokens, options = {}) {
   }
 
   // Strip wrapper commands (timeout, time, nice, nohup, env)
+  let strippedWrapper = false;
   while (tokens.length > 0 && WRAPPER_COMMANDS.has(tokens[0])) {
     const wrapper = tokens.shift();
+    strippedWrapper = true;
 
     // Handle wrapper-specific arguments
     if (wrapper === 'timeout') {
@@ -718,16 +844,46 @@ function normalizeSegment(tokens, options = {}) {
     return null;
   }
 
-  // Handle bash -c "command" - extract the FIRST inner command. This is the
-  // documented single-segment contract for direct callers. parseCommand() opts
-  // out ({ expandWrappers: false }) and classifies every inner segment through
-  // classifySegment() instead; a wrapper that reaches here from there (e.g.
-  // after an env/sudo prefix) stays a plain `bash` executable and is refused
-  // by the allowlist rather than being reduced to its first inner segment.
-  if (options.expandWrappers !== false && (tokens[0] === 'bash' || tokens[0] === 'sh')) {
-    const cIndex = tokens.indexOf('-c');
-    if (cIndex !== -1 && cIndex + 1 < tokens.length) {
-      const innerCommand = tokens[cIndex + 1];
+  // A shell -c behind a wrapper or a privilege prefix hides the command line
+  // it runs from the allowlist: the prefix decides what the shell does, so
+  // the segments inside it cannot be judged. Refuse it instead of leaving it
+  // to be approved as a whole.
+  if (strippedWrapper && isShellExecutable(tokens[0])) {
+    const invocation = readShellInvocation(tokens, 0);
+    if (invocation.kind === 'uncertain') {
+      throw new Error('shell invocation not supported');
+    }
+    if (invocation.kind === 'command' && invocation.commandIndex + 1 < tokens.length) {
+      throw new Error('shell -c behind a wrapper not supported');
+    }
+  }
+
+  if (COMMAND_PREFIX_COMMANDS.has(tokens[0])) {
+    for (let i = 1; i < tokens.length; i++) {
+      if (!isShellExecutable(tokens[i])) {
+        continue;
+      }
+      const invocation = readShellInvocation(tokens, i);
+      if (invocation.kind === 'uncertain') {
+        throw new Error('shell invocation not supported');
+      }
+      if (invocation.kind === 'command' && invocation.commandIndex + 1 < tokens.length) {
+        throw new Error('shell -c behind a wrapper not supported');
+      }
+    }
+  }
+
+  // Handle a shell -c "command" - extract the inner command. This is the
+  // documented single-segment contract for direct callers. parseCommand()
+  // opts out ({ expandWrappers: false }) and classifies every inner segment
+  // through classifySegment() instead, so every inner segment is judged.
+  if (options.expandWrappers !== false && isShellExecutable(tokens[0])) {
+    const invocation = readShellInvocation(tokens, 0);
+    if (invocation.kind === 'uncertain') {
+      throw new Error('shell invocation not supported');
+    }
+    if (invocation.kind === 'command' && invocation.commandIndex + 1 < tokens.length) {
+      const innerCommand = tokens[invocation.commandIndex + 1];
 
       // Handle empty inner command
       if (!innerCommand || innerCommand.trim() === '') {
@@ -736,7 +892,21 @@ function normalizeSegment(tokens, options = {}) {
 
       // Strict: an unterminated quote in the inner command hides words just
       // the same as one in the outer command.
-      const innerSegments = splitByOperators(tokenize(innerCommand, { strict: true }));
+      const innerTokens = tokenize(innerCommand, { strict: true });
+
+      // A redirect inside the wrapper is a redirect in the command line the
+      // wrapper runs, so it is judged like one outside it.
+      checkRedirections(innerTokens);
+
+      const innerSegments = splitByOperators(innerTokens);
+
+      // A function that returns one command cannot return more than one
+      // inner command: dropping the rest would judge the wrapper by its
+      // first inner command only.
+      if (innerSegments.length > 1) {
+        throw new Error('shell -c with more than one inner command is not supported');
+      }
+
       if (innerSegments.length > 0) {
         return normalizeSegment(innerSegments[0], options);
       }
@@ -799,11 +969,14 @@ function normalizeSegment(tokens, options = {}) {
  * @returns {{executable: string, args: string}[]} Normalized commands (0..n)
  */
 function classifySegment(tokens) {
-  // Handle bash -c "command" / sh -c "command": every inner segment counts
-  if (tokens.length > 0 && (tokens[0] === 'bash' || tokens[0] === 'sh')) {
-    const cIndex = tokens.indexOf('-c');
-    if (cIndex !== -1 && cIndex + 1 < tokens.length) {
-      const innerCommand = tokens[cIndex + 1];
+  // Handle a shell -c "command": every inner segment counts
+  if (tokens.length > 0 && isShellExecutable(tokens[0])) {
+    const invocation = readShellInvocation(tokens, 0);
+    if (invocation.kind === 'uncertain') {
+      throw new Error('shell invocation not supported');
+    }
+    if (invocation.kind === 'command' && invocation.commandIndex + 1 < tokens.length) {
+      const innerCommand = tokens[invocation.commandIndex + 1];
 
       // Empty inner command: wrapper alone is not auto-allowed
       if (!innerCommand || innerCommand.trim() === '') {
@@ -812,7 +985,13 @@ function classifySegment(tokens) {
 
       // Strict: an unterminated quote in the inner command hides words just
       // the same as one in the outer command.
-      const innerSegments = splitByOperators(tokenize(innerCommand, { strict: true }));
+      const innerTokens = tokenize(innerCommand, { strict: true });
+
+      // A redirect inside the wrapper is a redirect in the command line the
+      // wrapper runs, so it is judged like one outside it.
+      checkRedirections(innerTokens);
+
+      const innerSegments = splitByOperators(innerTokens);
 
       const results = [];
       for (const innerSegment of innerSegments) {
@@ -907,6 +1086,8 @@ module.exports = {
   checkRedirections,
   // Export constants for testing
   WRAPPER_COMMANDS,
+  COMMAND_PREFIX_COMMANDS,
+  SHELL_EXECUTABLES,
   SKIP_COMMANDS,
   OPERATORS,
   DANGEROUS_ASSIGNMENT_VARS,

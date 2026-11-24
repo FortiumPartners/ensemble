@@ -11,7 +11,8 @@ const {
   parseCommand,
   tokenize,
   checkUnsafe,
-  normalizeSegment
+  normalizeSegment,
+  SHELL_EXECUTABLES
 } = require('../lib/command-parser');
 
 const { matchesPattern, matchesAny, isDenied } = require('../lib/matcher');
@@ -1271,18 +1272,18 @@ describe('ensemble-pdf-f6b2: tokenizer and wrapper bypasses', () => {
       expect(autoAllowed(cmd)).toBe(false);
     });
 
-    // A shell wrapper behind a prefix is left as an unexpanded bash/sh
-    // executable that no allowlist matches, instead of being reduced to its
-    // first inner segment. Reading wrapper options must keep that property.
+    // A shell -c behind a wrapper prefix is refused. The prefix decides what
+    // the shell runs, so the command line it hides cannot be judged; leaving
+    // it as an unexpanded bash/sh executable would let a `Bash(bash:*)` rule
+    // approve it. Either way it is not auto-allowed.
     test.each([
       'env bash -c "git status; rm -rf /"',
       'env -i bash -c "git status; rm -rf /"',
       'env A=1 sh -c "git status; rm -rf /"',
       'timeout 5 bash -c "git status; rm -rf /"',
       'nohup bash -c "git status; rm -rf /"'
-    ])('a wrapper in front of bash -c is not reduced to its first segment: %s', (cmd) => {
-      expect(executables(cmd)).toHaveLength(1);
-      expect(['bash', 'sh']).toContain(executables(cmd)[0]);
+    ])('a wrapper in front of bash -c is refused: %s', (cmd) => {
+      expect(() => parseCommand(cmd)).toThrow(/shell -c behind a wrapper not supported/);
       expect(autoAllowed(cmd)).toBe(false);
     });
   });
@@ -1586,8 +1587,11 @@ describe('ensemble-pdf-f6b2: tokenizer and wrapper bypasses', () => {
       expect(autoAllowed("bash -c ''")).toBe(false);
     });
 
-    test('a direct normalizeSegment() call keeps its single-segment contract', () => {
-      expect(normalizeSegment(['bash', '-c', 'unset FOO; npm test'])).toBeNull();
+    test('a direct normalizeSegment() call does not drop the inner segments after the first', () => {
+      expect(() => normalizeSegment(['bash', '-c', 'unset FOO; npm test'])).toThrow(
+        /shell -c with more than one inner command is not supported/
+      );
+      expect(normalizeSegment(['bash', '-c', 'npm test'])).toEqual({ executable: 'npm', args: 'test' });
     });
   });
 
@@ -1709,6 +1713,196 @@ describe('ensemble-pdf-f6b2: tokenizer and wrapper bypasses', () => {
       expect(status).toBe(0);
       expect(stdout).toBe('');
       expect(debug).toMatch(/Parse error: env option not supported/);
+    });
+  });
+});
+
+// =============================================================================
+// foreman-zflwr + foreman-siil7: what a shell -c wrapper hides
+// =============================================================================
+describe('foreman-zflwr/siil7: a shell -c wrapper hides neither a redirect nor its command line', () => {
+  const allowlist = ['Bash(npm test:*)', 'Bash(npm run:*)', 'Bash(git:*)'];
+
+  // Mirrors hooks/permitter.js: allow only if the parse succeeds and every
+  // segment matches the allowlist.
+  function autoAllowed(cmd) {
+    let cmds;
+    try {
+      cmds = parseCommand(cmd);
+    } catch {
+      return false;
+    }
+    return cmds.length > 0 && cmds.every((c) => matchesAny(c, allowlist));
+  }
+
+  const executables = (cmd) => parseCommand(cmd).map((c) => c.executable);
+
+  // The text inside a -c wrapper is a command line of its own, so a redirect
+  // in it is refused exactly like a redirect outside it.
+  describe('a redirect inside -c is refused like one outside', () => {
+    test.each([
+      ['a redirect to a path', 'bash -c "npm test > ~/.ssh/authorized_keys"'],
+      ['a redirect after another command', 'bash -c "git status; npm test > /etc/passwd"'],
+      ['a redirect after an fd duplication', 'bash -c "npm test 2>&1 > /etc/x"'],
+      ['a redirect from a path', 'bash -c "npm test < /etc/passwd"'],
+      ['an append redirect', 'bash -c "npm test >> /etc/x"'],
+      ['a redirect that swallows both streams', 'bash -c "npm test &> /etc/x"'],
+      ['the same inside sh', 'sh -c "npm test > /etc/x"']
+    ])('%s: refused', (_name, cmd) => {
+      expect(() => parseCommand(cmd)).toThrow(/Redirection to a path not supported/);
+      expect(autoAllowed(cmd)).toBe(false);
+    });
+  });
+
+  // /dev/null and an fd duplication name no target, so they hide nothing.
+  describe('a targetless redirection inside -c stays allowed', () => {
+    test.each([
+      ['a redirect to /dev/null', 'sh -c "npm test > /dev/null"'],
+      ['a redirect to /dev/null and an fd duplication', 'bash -c "npm test >/dev/null 2>&1"'],
+      ['an fd duplication only', 'bash -c "npm test 2>&1"']
+    ])('%s: still parses', (_name, cmd) => {
+      expect(parseCommand(cmd)).toEqual([{ executable: 'npm', args: 'test' }]);
+      expect(autoAllowed(cmd)).toBe(true);
+    });
+  });
+
+  // Every shell hides a command line the same way, and the path it is called
+  // by does not hide it either.
+  describe('every shell -c expands its inner segments', () => {
+    test('every shell the parser knows expands its inner segments', () => {
+      for (const shell of SHELL_EXECUTABLES) {
+        expect(parseCommand(`${shell} -c "git status; rm -rf /"`)).toEqual([
+          { executable: 'git', args: 'status' },
+          { executable: 'rm', args: '-rf /' }
+        ]);
+      }
+    });
+
+    test.each([
+      ['zsh', 'zsh -c "git status; rm -rf /"'],
+      ['dash', 'dash -c "git status; rm -rf /"'],
+      ['ksh', 'ksh -c "git status; rm -rf /"'],
+      ['ash', 'ash -c "git status; rm -rf /"'],
+      ['mksh', 'mksh -c "git status; rm -rf /"'],
+      ['bash', 'bash -c "git status; rm -rf /"'],
+      ['sh', 'sh -c "git status; rm -rf /"'],
+      ['an absolute path', '/bin/bash -c "git status; rm -rf /"'],
+      ['another absolute path', '/usr/bin/zsh -c "git status; rm -rf /"']
+    ])('%s: every inner segment counts', (_name, cmd) => {
+      expect(parseCommand(cmd)).toEqual([
+        { executable: 'git', args: 'status' },
+        { executable: 'rm', args: '-rf /' }
+      ]);
+      expect(autoAllowed(cmd)).toBe(false);
+    });
+  });
+
+  // A shell -c behind a prefix hides the command line from the allowlist, so
+  // it is refused instead of being judged by the prefix.
+  describe('a shell -c behind a prefix is refused', () => {
+    test.each([
+      ['sudo', 'sudo bash -c "git status; rm -rf /"'],
+      ['sudo with a user', 'sudo -u x bash -c "git status; rm -rf /"'],
+      ['doas', 'doas bash -c "git status; rm -rf /"'],
+      ['command', 'command bash -c "git status; rm -rf /"'],
+      ['env', 'env bash -c "git status; rm -rf /"'],
+      ['timeout', 'timeout 5 bash -c "git status; rm -rf /"'],
+      ['nohup', 'nohup bash -c "git status; rm -rf /"'],
+      ['env in front of another shell', 'env zsh -c "git status; rm -rf /"']
+    ])('%s: refused', (_name, cmd) => {
+      expect(() => parseCommand(cmd)).toThrow(/shell -c behind a wrapper not supported/);
+      expect(autoAllowed(cmd)).toBe(false);
+    });
+  });
+
+  // A prefix that hides no shell -c keeps its current output.
+  describe('a prefix without a hidden shell keeps its output', () => {
+    test.each([
+      ['sudo', 'sudo git status', 'sudo'],
+      ['sudo with a user', 'sudo -u x git status', 'sudo'],
+      ['command', 'command -v git', 'command'],
+      ['env', 'env git status', 'git'],
+      ['a shell without -c', 'bash script.sh', 'bash'],
+      ['sudo in front of a shell without -c', 'sudo -u x bash script.sh', 'sudo']
+    ])('%s: unchanged', (_name, cmd, executable) => {
+      expect(executables(cmd)).toEqual([executable]);
+    });
+  });
+
+  // The exported normalizeSegment() keeps its single-segment contract, but it
+  // no longer drops the segments after the first one.
+  describe('normalizeSegment() does not drop inner segments', () => {
+    test('a single inner segment still parses', () => {
+      expect(normalizeSegment(['bash', '-c', 'npm test'])).toEqual({ executable: 'npm', args: 'test' });
+    });
+
+    test('more than one inner segment is refused', () => {
+      expect(() => normalizeSegment(['bash', '-c', 'git status; rm -rf /'])).toThrow(
+        /shell -c with more than one inner command is not supported/
+      );
+    });
+  });
+
+  // A shell takes options before the command string, and a -c that follows
+  // the script operand belongs to the script.
+  describe('a shell invocation is read the way bash reads it', () => {
+    test.each([
+      ['an option before -c', 'env bash -e -c "git status; rm -rf /"'],
+      ['a short option cluster', 'env bash -lc "git status; rm -rf /"'],
+      ['a long option before -c', 'env bash --noprofile -c "git status; rm -rf /"'],
+      ['an option before -c behind sudo', 'sudo bash -e -c "git status; rm -rf /"'],
+      ['a short option cluster behind sudo', 'sudo bash -lc "git status; rm -rf /"']
+    ])('%s: refused', (_name, cmd) => {
+      expect(() => parseCommand(cmd)).toThrow(/shell -c behind a wrapper not supported/);
+      expect(autoAllowed(cmd)).toBe(false);
+    });
+
+    test.each([
+      ['a script operand after --', '/bin/bash -- ./payload.sh -c "git status"'],
+      ['a script operand', '/bin/bash ./payload.sh -c "git status"']
+    ])('%s: the script is not read as a command string', (_name, cmd) => {
+      expect(parseCommand(cmd)).not.toEqual([{ executable: 'git', args: 'status' }]);
+      expect(autoAllowed(cmd)).toBe(false);
+    });
+
+    test('a program that is only called bash is not a shell', () => {
+      const parsed = parseCommand('./tools/bash -c "git status"');
+      expect(parsed).not.toEqual([{ executable: 'git', args: 'status' }]);
+      expect(parsed[0].executable).toBe('./tools/bash');
+      expect(autoAllowed('./tools/bash -c "git status"')).toBe(false);
+    });
+  });
+
+  // A shell invocation that reads a file the parser cannot see, or whose
+  // options cannot be read with certainty, is refused rather than guessed at.
+  describe('a shell invocation the parser cannot read is refused', () => {
+    test.each([
+      ['a startup file', 'bash --rcfile ./payload.sh -ic "git status"'],
+      ['an init file', 'bash --init-file ./payload.sh -c "git status"'],
+      ['an unknown option', 'bash --unknown-option -c "git status"'],
+      ['an unknown short option', 'bash -z -c "git status"']
+    ])('%s is refused', (_name, cmd) => {
+      expect(() => parseCommand(cmd)).toThrow(/not supported/);
+      expect(autoAllowed(cmd)).toBe(false);
+    });
+
+    test.each([
+      ['a + option', 'env bash +e -c "rm -rf /tmp/target"'],
+      ['an option that takes a value', 'env bash -O extglob -c "rm -rf /tmp/target"'],
+      ['an unknown option', 'env bash --unknown-option -c "rm -rf /tmp/target"'],
+      ['an unknown option behind sudo', 'sudo bash --unknown-option -c "rm -rf /tmp/target"']
+    ])('%s behind a wrapper is refused', (_name, cmd) => {
+      expect(() => parseCommand(cmd)).toThrow(/not supported/);
+      expect(autoAllowed(cmd)).toBe(false);
+    });
+
+    test('a startup file variable is refused', () => {
+      expect(() => parseCommand('ZDOTDIR=./payload zsh -c "git status"')).toThrow(
+        /dangerous variable assignment/i
+      );
+      expect(() => parseCommand('export ZDOTDIR=./payload; zsh -c "git status"')).toThrow(
+        /dangerous variable assignment/i
+      );
     });
   });
 });
