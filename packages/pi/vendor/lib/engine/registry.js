@@ -10,6 +10,8 @@
  * (Constitution Rule 7 -- a check must be able to fail).
  */
 
+const { assertNativeInputSchema } = require('./input');
+
 /** The two side-effect classes a verb may declare. */
 const SIDE_EFFECTS = Object.freeze(['read', 'write']);
 
@@ -63,6 +65,10 @@ function createRegistry() {
    */
   function register(spec) {
     assertSpec(spec);
+    // A mounted legacy verb takes whatever the caller typed, so only a native verb's schema has
+    // to be drivable from argv. Checking it here means an undrivable verb never reaches the
+    // dispatcher at all (Constitution Rule 7).
+    if (!spec.passthrough) assertNativeInputSchema(`${spec.group} ${spec.name}`, spec.inputSchema);
     const key = `${spec.group}:${spec.name}`;
     if (entries.has(key)) {
       throw new Error(`verb '${spec.group} ${spec.name}' is already registered`);

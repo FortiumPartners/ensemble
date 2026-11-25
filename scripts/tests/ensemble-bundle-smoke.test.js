@@ -67,13 +67,19 @@ function copyDereferenced(src, dest) {
   fs.chmodSync(dest, stat.mode & 0o777);
 }
 
-/** Every `*.js` path under `dir`, relative and forward-slash separated. */
+/**
+ * Every vendored content path under `dir`, relative and forward-slash separated. `*.json` counts
+ * as well as `*.js`: `engine/policy/defaults.json` carries the engine's policy defaults, and a
+ * stale copy of it would change what a pi run decides while every `.js` file matched.
+ */
 function listJsFiles(dir, prefix = '') {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) out.push(...listJsFiles(path.join(dir, entry.name), rel));
-    else if (entry.isFile() && entry.name.endsWith('.js')) out.push(rel);
+    else if (entry.isFile() && (entry.name.endsWith('.js') || entry.name.endsWith('.json'))) {
+      out.push(rel);
+    }
   }
   return out;
 }
@@ -111,6 +117,35 @@ describe('the dereferenced bundle runs bin/ensemble', () => {
       expect(verb.inputSchema).toBeDefined();
       expect(verb.outputSchema).toBeDefined();
     }
+  }, 120000);
+
+  test('a native verb runs from the bundle, so its data files are installed too', () => {
+    const bundleRoot = path.join(installRoot, 'full');
+    const launcher = path.join(bundleRoot, 'bin', 'ensemble');
+
+    // `engine policy` reads `lib/engine/policy/defaults.json`: a bundle that shipped only the
+    // `.js` files would answer with an exit code, not with the defaults.
+    const policy = spawnSync(process.execPath, [launcher, 'engine', 'policy'], {
+      cwd: bundleRoot,
+      encoding: 'utf8',
+      timeout: 60000,
+    });
+    expect(`${policy.status} ${policy.stderr}`).toBe('0 ');
+    const policyEnvelope = JSON.parse(policy.stdout);
+    expect(policyEnvelope.status).toBe('OK');
+    expect(typeof policyEnvelope.data.policy.max_parallel_default.value).toBe('number');
+    expect(policyEnvelope.data.policy.max_parallel_default.source).toBe('default');
+
+    const args = spawnSync(
+      process.execPath,
+      [launcher, 'implement', 'args', '--plan', 'docs/x.md'],
+      { cwd: bundleRoot, encoding: 'utf8', timeout: 60000 }
+    );
+    expect(`${args.status} ${args.stderr}`).toBe('0 ');
+    const argsEnvelope = JSON.parse(args.stdout);
+    expect(argsEnvelope.status).toBe('OK');
+    expect(argsEnvelope.data.PLAN_ONLY).toBe(true);
+    expect(argsEnvelope.data.TRD_PATHS).toEqual(['docs/x.md']);
   }, 120000);
 });
 
@@ -206,13 +241,33 @@ describe('the engine is vendored for pi', () => {
     // source is the stale-vendor defect `toolchain-vendor-sync.test.js` guards for the
     // toolchain subtree.
     const required = [
+      'agents.js',
       'argv.js',
+      'cli-json.js',
       'describe.js',
       'envelope.js',
+      'git.js',
+      'input.js',
+      'interactivity.js',
+      'messages.js',
       'mount.js',
+      'policy.js',
+      'policy/defaults.json',
       'registry.js',
-      'groups/trd.js',
+      'result.js',
+      'staleness.js',
+      'trd-source.js',
+      'validate.js',
+      'worktree.js',
+      'groups/engine.js',
+      'groups/implement.js',
       'groups/tool.js',
+      'groups/trd.js',
+      'verbs/implement-args.js',
+      'verbs/implement-branch.js',
+      'verbs/implement-env.js',
+      'verbs/implement-resume.js',
+      'verbs/implement-team.js',
     ];
     const vendoredFiles = fs.existsSync(path.join(PI_VENDOR_LIB_DIR, 'engine'))
       ? listJsFiles(path.join(PI_VENDOR_LIB_DIR, 'engine'))

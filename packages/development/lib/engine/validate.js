@@ -92,6 +92,32 @@ function readStdinCapped(stream) {
 }
 
 /**
+ * Schema-check one already-parsed input object.
+ *
+ * Split out of `parseInput` because input also arrives as flags and operands, which are never
+ * JSON text: both routes have to meet the same schema, or a caller could reach a handler with
+ * input the verb never declared simply by spelling it as flags.
+ *
+ * @param {*} value the parsed input
+ * @param {object} schema the verb's JSON schema
+ * @returns {*} `value`, when it validates
+ * @throws {Error} `INVALID_INPUT`, naming the offending field
+ */
+function validateInput(value, schema) {
+  const validate = ajv.compile(schema);
+  if (validate(value)) return value;
+
+  const error = (validate.errors || [])[0];
+  if (!error) throw invalidInputError('SCHEMA_VIOLATION', 'input failed schema validation');
+  const field =
+    (error.params && error.params.additionalProperty) ||
+    (error.instancePath ? error.instancePath.replace(/^\//, '').replace(/\//g, '.') : '') ||
+    (error.params && error.params.missingProperty) ||
+    '(root)';
+  throw invalidInputError('SCHEMA_VIOLATION', `input field '${field}' ${error.message}`);
+}
+
+/**
  * Parse and schema-check one input body.
  * @param {string} text raw JSON
  * @param {object} schema the verb's JSON schema
@@ -106,17 +132,7 @@ function parseInput(text, schema) {
     throw invalidInputError('INVALID_JSON', `input is not valid JSON: ${err.message}`);
   }
 
-  const validate = ajv.compile(schema);
-  if (validate(parsed)) return parsed;
-
-  const error = (validate.errors || [])[0];
-  if (!error) throw invalidInputError('SCHEMA_VIOLATION', 'input failed schema validation');
-  const field =
-    (error.params && error.params.additionalProperty) ||
-    (error.instancePath ? error.instancePath.replace(/^\//, '').replace(/\//g, '.') : '') ||
-    (error.params && error.params.missingProperty) ||
-    '(root)';
-  throw invalidInputError('SCHEMA_VIOLATION', `input field '${field}' ${error.message}`);
+  return validateInput(parsed, schema);
 }
 
 /**
@@ -173,6 +189,20 @@ function realpathOfNearestAncestor(target, options = {}) {
 }
 
 /**
+ * Whether `child` is `parent` itself or sits under it. `path.relative` answers that, where a
+ * separator-prefix test would need a doubled separator to match a project root of `/`.
+ * @param {string} parent the directory that would contain the path
+ * @param {string} child the path being tested
+ * @returns {boolean}
+ */
+function isInside(parent, child) {
+  const relative = path.relative(parent, child);
+  if (relative === '') return true;
+  if (path.isAbsolute(relative)) return false;
+  return relative !== '..' && !relative.startsWith(`..${path.sep}`);
+}
+
+/**
  * Contain a caller-supplied path: its real path must sit at the project root, under it, or under
  * `<projectRoot>/.ensemble/state`.
  * @param {string} projectRoot
@@ -196,11 +226,7 @@ function resolveCallerPath(projectRoot, candidate) {
   const resolved = realpathOfNearestAncestor(path.resolve(root, candidate));
   const stateDir = path.join(root, '.ensemble', 'state');
 
-  const contained =
-    resolved === root ||
-    resolved.startsWith(root + path.sep) ||
-    resolved === stateDir ||
-    resolved.startsWith(stateDir + path.sep);
+  const contained = isInside(root, resolved) || isInside(stateDir, resolved);
   if (!contained) {
     throw invalidInputError(
       'PATH_ESCAPE',
@@ -218,4 +244,5 @@ module.exports = {
   readStdinCapped,
   realpathOfNearestAncestor,
   resolveCallerPath,
+  validateInput,
 };

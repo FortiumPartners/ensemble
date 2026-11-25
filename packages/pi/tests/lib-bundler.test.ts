@@ -65,6 +65,22 @@ function buildFakeMonorepo(root: string): void {
   const shPath = path.join(gitScripts, 'validate-git-town.sh');
   fs.writeFileSync(shPath, '#!/usr/bin/env bash\necho "validate-git-town"\n', 'utf-8');
   fs.chmodSync(shPath, 0o755);
+
+  // team-defaults.js reads this YAML by path at runtime, so the bundle has to carry it.
+  const teamRefs = path.join(
+    root,
+    'packages',
+    'development',
+    'skills',
+    'ensemble-configure-team',
+    'references'
+  );
+  fs.mkdirSync(teamRefs, { recursive: true });
+  fs.writeFileSync(
+    path.join(teamRefs, 'team-configuration.yaml'),
+    'default_agents:\n  backend: backend-developer\n',
+    'utf-8'
+  );
 }
 
 /**
@@ -139,8 +155,9 @@ describe('bundleLibs', () => {
 
   it('copies entry points plus their full transitive require closure', async () => {
     const results = await bundleLibs(sourceRoot, outputRoot, {});
-    // trd-cli, trd-graph-cli, prd-cli (entries) + sibling-a, sibling-b (closure) + validate-git-town.sh
-    expect(results.length).toBe(6);
+    // trd-cli, trd-graph-cli, prd-cli (entries) + sibling-a, sibling-b (closure)
+    // + validate-git-town.sh + team-configuration.yaml
+    expect(results.length).toBe(7);
   });
 
   it('vendors transitively-required sibling modules, not just the named entry points', async () => {
@@ -195,6 +212,36 @@ describe('bundleLibs', () => {
     expect(mode & 0o100).toBeTruthy();
   });
 
+  it('vendors the team-configuration.yaml byte-equal under vendor/skills/', async () => {
+    const results = await bundleLibs(sourceRoot, outputRoot, {});
+
+    const yamlResult = results.find((r) => r.outputPath.endsWith('team-configuration.yaml'));
+    expect(yamlResult).toBeDefined();
+    expect(yamlResult!.outputPath).toBe(
+      path.join(
+        outputRoot,
+        'vendor',
+        'skills',
+        'ensemble-configure-team',
+        'references',
+        'team-configuration.yaml'
+      )
+    );
+    const source = fs.readFileSync(
+      path.join(
+        sourceRoot,
+        'packages',
+        'development',
+        'skills',
+        'ensemble-configure-team',
+        'references',
+        'team-configuration.yaml'
+      ),
+      'utf-8'
+    );
+    expect(fs.readFileSync(yamlResult!.outputPath, 'utf-8')).toBe(source);
+  });
+
   it('each result has type === "lib"', async () => {
     const results = await bundleLibs(sourceRoot, outputRoot, {});
     for (const result of results) {
@@ -217,7 +264,7 @@ describe('bundleLibs', () => {
   it('returns results without writing files when dryRun is true', async () => {
     const results = await bundleLibs(sourceRoot, outputRoot, { dryRun: true });
 
-    expect(results.length).toBe(6);
+    expect(results.length).toBe(7);
 
     const vendorOutputDir = path.join(outputRoot, 'vendor');
     expect(fs.existsSync(vendorOutputDir)).toBe(false);
@@ -230,8 +277,8 @@ describe('bundleLibs', () => {
     const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const results = await bundleLibs(sourceRoot, outputRoot, {});
-      // Only 5 of the 6 files should have been copied
-      expect(results.length).toBe(5);
+      // Only 6 of the 7 files should have been copied
+      expect(results.length).toBe(6);
       expect(results.some((r) => r.outputPath.endsWith('prd-cli.js'))).toBe(false);
       expect(stderrSpy).toHaveBeenCalled();
     } finally {

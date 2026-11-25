@@ -1,0 +1,24 @@
+{
+  "constitution_methodology": {
+    "characterization-first": "characterization",
+    "flexible": "flexible",
+    "tdd": "tdd"
+  },
+  "default_strategy": "tdd",
+  "design_readiness_pass": 4.0,
+  "design_readiness_warn": 3.0,
+  "max_parallel_default": 3,
+  "staleness_hours": 24,
+  "strategy_detection": {
+    "brownfield": "characterization",
+    "bug fix": "bug-fix",
+    "legacy": "characterization",
+    "poc": "test-after",
+    "prototype": "test-after",
+    "refactor": "refactor",
+    "regression": "bug-fix",
+    "spike": "test-after",
+    "tech debt": "refactor",
+    "untested": "characterization"
+  }
+}

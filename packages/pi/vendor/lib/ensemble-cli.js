@@ -10,17 +10,28 @@
  * and only the entry guard at the bottom touches the process).
  *
  * The flow is: parse argv -> refuse a bad flag -> `--describe` -> `--help` -> look the verb up
- * -> dispatch. A verb that is not registered is refused with the nearest known verbs; it is
- * never guessed at.
+ * -> resolve its input -> dispatch. A verb that is not registered is refused with the nearest
+ * known verbs; it is never guessed at.
+ *
+ * A native verb's input passes through the validation boundary before its handler runs: flags,
+ * operands and a `--stdin` body are all checked against the verb's declared schema, and every
+ * `x-path` field is contained to the project root. That is what makes `lib/engine/validate.js`
+ * reachable from the entry point (Constitution Rule 6); a refusal happens before the handler,
+ * never after it (Rule 7). A mounted legacy verb keeps bypassing all of it, so its output stays
+ * byte-identical to the legacy CLI's (TRD-003).
  */
 
 const { parseArgv } = require('./engine/argv');
 const { describe, nearestVerbs, renderGroupHelp, renderVerbHelp } = require('./engine/describe');
 const { STATUS_EXIT, buildEnvelope, exitCodeFor, internal, invalidInput } = require('./engine/envelope');
+const { flagTable, resolveInput, resolveProjectRoot } = require('./engine/input');
 const { mountLegacyGroup } = require('./engine/mount');
 const { createRegistry } = require('./engine/registry');
+const { isResult, toEnvelope } = require('./engine/result');
+const { readStdinCapped } = require('./engine/validate');
 
 const MOUNTED_GROUPS = [require('./engine/groups/trd'), require('./engine/groups/tool')];
+const NATIVE_GROUPS = [require('./engine/groups/engine'), require('./engine/groups/implement')];
 
 /**
  * The engine's registry. Groups are registered here and nowhere else, so `--describe` and the
@@ -30,6 +41,7 @@ const MOUNTED_GROUPS = [require('./engine/groups/trd'), require('./engine/groups
 function buildRegistry() {
   const registry = createRegistry();
   for (const mount of MOUNTED_GROUPS) mountLegacyGroup(registry, mount);
+  for (const group of NATIVE_GROUPS) group.register(registry);
   return registry;
 }
 
@@ -70,7 +82,12 @@ function main(argv, ctx = {}) {
   const streams = { stderr, stdout };
   const registry = ctx.registry || buildRegistry();
 
-  const parsed = parseArgv(argv);
+  const parsed = parseArgv(argv, {
+    verbFlags: (group, verb) => {
+      const spec = registry.get(group, verb);
+      return spec && !spec.passthrough ? flagTable(spec.inputSchema) : null;
+    },
+  });
   const label = [parsed.group, parsed.verb].filter(Boolean).join(' ') || 'ensemble';
 
   // A mounted legacy verb owns every flag after `<group> <verb>`: the parser does not know the
@@ -135,8 +152,9 @@ function main(argv, ctx = {}) {
     );
   }
 
+  const cwd = ctx.cwd || process.cwd();
   const call = {
-    cwd: ctx.cwd || process.cwd(),
+    cwd,
     env: ctx.env || process.env,
     globals: parsed.globals,
     rest: parsed.rest,
@@ -146,10 +164,23 @@ function main(argv, ctx = {}) {
   };
 
   try {
+    if (!spec.passthrough) {
+      // Input resolution sits inside this `try` on purpose: its refusals are the verb's
+      // refusals, and they must become the same envelope the handler's would.
+      call.projectRoot = resolveProjectRoot(cwd, parsed.globals.projectRoot);
+      call.input = resolveInput(spec, parsed, {
+        projectRoot: call.projectRoot,
+        stdin: ctx.stdin,
+      });
+      call.now = ctx.now === undefined ? Math.floor(Date.now() / 1000) : ctx.now;
+      call.registry = registry;
+    }
+
     const value = spec.handler(call);
     // A mounted verb has already written the legacy CLI's own bytes to stdout; wrapping them in
     // an envelope would break parity, so it reports only the legacy exit code.
     if (spec.passthrough) return result(null, value);
+    if (isResult(value)) return envelopeResult(toEnvelope(label, value));
     return envelopeResult(
       buildEnvelope({ data: value, ok: true, status: 'OK', verb: label })
     );
@@ -157,7 +188,11 @@ function main(argv, ctx = {}) {
     if (error && isEngineStatus(error.status)) {
       return envelopeResult(
         buildEnvelope({
-          error: { code: error.code, message: error.message },
+          error: {
+            code: error.code,
+            details: error.details === undefined ? null : error.details,
+            message: error.message,
+          },
           ok: false,
           status: error.status,
           verb: label,
@@ -190,11 +225,54 @@ function renderRootHelp(registry) {
  * `require.main` is the launcher, so the guard below does not fire and the launcher calls
  * `run()` itself (TRD-004).
  *
- * @param {string[]} argv the arguments after the command name
- * @returns {number} the exit code, also set on `process.exitCode`
+ * @param {string[]} argv
+ * @param {object} registry
+ * @returns {boolean} true when the call is a native verb asking for its input on stdin
  */
-function run(argv) {
-  const { envelope, exitCode } = main(argv);
+function needsStdin(argv, registry) {
+  if (!argv.includes('--stdin')) return false;
+  const parsed = parseArgv(argv);
+  if (!parsed.group || !parsed.verb) return false;
+  const spec = registry.get(parsed.group, parsed.verb);
+  return Boolean(spec && !spec.passthrough);
+}
+
+/**
+ * @param {string[]} argv the arguments after the command name
+ * @returns {Promise<number>} the exit code, also set on `process.exitCode`
+ */
+async function run(argv) {
+  let envelope = null;
+  let exitCode = 0;
+  try {
+    const registry = buildRegistry();
+    let stdin;
+    if (needsStdin(argv, registry)) {
+      if (process.stdin.isTTY) {
+        envelope = invalidInput(
+          'ensemble',
+          'STDIN_IS_TTY',
+          '--stdin was given but stdin is a terminal; pipe the input object in'
+        );
+      } else {
+        try {
+          stdin = await readStdinCapped(process.stdin);
+        } catch (error) {
+          envelope = invalidInput('ensemble', error.code || 'INVALID_JSON', error.message);
+        }
+      }
+    }
+    if (envelope) {
+      exitCode = exitCodeFor(envelope.status);
+    } else {
+      ({ envelope, exitCode } = main(argv, { registry, stdin }));
+    }
+  } catch (error) {
+    // `run` is the process boundary: an exception escaping here would surface as an unhandled
+    // rejection with no envelope at all, because the bundled launcher does not await it.
+    envelope = internal('ensemble', error);
+    exitCode = exitCodeFor(envelope.status);
+  }
   if (envelope) process.stdout.write(`${JSON.stringify(envelope)}\n`);
   process.exitCode = exitCode;
   return exitCode;

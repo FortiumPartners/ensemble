@@ -35,22 +35,34 @@ function parseError(code, message) {
 }
 
 /**
+ * A native verb declares its own flags, so the parser has to be told them -- but only after the
+ * group and the verb are known, which is why the table is supplied as a callback rather than
+ * up front. Before the verb is known a `--flag` is still `UNKNOWN_FLAG`: a verb's flag written
+ * ahead of its verb is a mistake, not a different spelling.
+ *
  * @param {string[]} argv
- * @returns {{group: string|null, verb: string|null, help: boolean, describe: boolean, globals: object, rest: string[], error: {code: string, message: string}|null}}
+ * @param {{verbFlags?: (group: string, verb: string) => object|null}} [options] when
+ *   `verbFlags` is absent the result is exactly what it was before native verbs existed, which
+ *   is what keeps mounted legacy groups byte-identical (TRD-003)
+ * @returns {{group: string|null, verb: string|null, help: boolean, describe: boolean, globals: object, rest: string[], operands: string[], verbFlags: object, error: {code: string, message: string}|null}}
  */
-function parseArgv(argv) {
+function parseArgv(argv, options = {}) {
   const result = {
     describe: false,
     error: null,
     globals: { json: false, nonInteractive: false, projectRoot: null, runId: null },
     group: null,
     help: false,
+    operands: [],
     rest: [],
     verb: null,
+    verbFlags: {},
   };
 
   const positionals = [];
   let restStart = -1;
+  /** The verb's own flag table, looked up once the second positional is in hand. */
+  let flagTable = null;
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -98,6 +110,53 @@ function parseArgv(argv) {
       continue;
     }
 
+    // Only an own property of the flag table is a declared flag: an inherited name (`constructor`
+    // and friends) is not a flag of this verb and must read as unknown.
+    const flagName = flag.startsWith('--') ? flag.slice(2) : null;
+    const declared =
+      flagTable && flagName !== null && Object.prototype.hasOwnProperty.call(flagTable, flagName)
+        ? flagTable[flagName]
+        : null;
+    if (declared) {
+      const name = flagName;
+      if (declared.type === 'boolean') {
+        if (inlineValue !== null) {
+          result.error = parseError('INVALID_FLAG_VALUE', `flag '${flag}' takes no value`);
+          break;
+        }
+        if (Object.prototype.hasOwnProperty.call(result.verbFlags, declared.key)) {
+          result.error = parseError('DUPLICATE_FLAG', `flag '${flag}' given more than once`);
+          break;
+        }
+        result.verbFlags[declared.key] = true;
+        continue;
+      }
+
+      let value = inlineValue;
+      if (value === null) {
+        index += 1;
+        value = index < argv.length ? argv[index] : undefined;
+      }
+      if (value === undefined || value.length === 0 || value.startsWith('-')) {
+        result.error = parseError(
+          'MISSING_FLAG_VALUE',
+          `flag '${flag}' expects a value, got '${value === undefined ? '' : value}'`
+        );
+        break;
+      }
+      if (declared.repeatable) {
+        const existing = result.verbFlags[declared.key];
+        result.verbFlags[declared.key] = Array.isArray(existing) ? [...existing, value] : [value];
+      } else {
+        if (Object.prototype.hasOwnProperty.call(result.verbFlags, declared.key)) {
+          result.error = parseError('DUPLICATE_FLAG', `flag '--${name}' given more than once`);
+          break;
+        }
+        result.verbFlags[declared.key] = value;
+      }
+      continue;
+    }
+
     if (token.startsWith('-') && token !== '-') {
       result.error = parseError('UNKNOWN_FLAG', `unknown flag '${flag}'`);
       break;
@@ -105,8 +164,18 @@ function parseArgv(argv) {
 
     if (positionals.length < 2) {
       positionals.push(token);
-      if (positionals.length === 2) restStart = index + 1;
+      if (positionals.length === 2) {
+        restStart = index + 1;
+        if (typeof options.verbFlags === 'function') {
+          flagTable = options.verbFlags(positionals[0], positionals[1]) || null;
+        }
+      }
+      continue;
     }
+
+    // A non-flag token after the verb is an operand of a native verb; mounted groups read the
+    // same token out of `rest`, which is untouched.
+    result.operands.push(token);
   }
 
   result.group = positionals[0] === undefined ? null : positionals[0];

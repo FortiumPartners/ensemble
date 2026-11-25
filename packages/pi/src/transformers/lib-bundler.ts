@@ -96,11 +96,21 @@ const TOOLCHAIN_SUBDIR = 'toolchain';
  * requires via '../complexity-analyzer' for secret redaction. */
 const COMPLEXITY_ANALYZER_FILE = 'complexity-analyzer.js';
 
-/** Shell scripts vendored as-is, no dependency walking (src relative to sourceRoot). */
+/**
+ * Non-JavaScript files vendored as-is, no dependency walking (src relative to sourceRoot): shell
+ * scripts, plus the data files a vendored module reads by path. `team-defaults.js` resolves
+ * `../skills/ensemble-configure-team/references/team-configuration.yaml` from its own directory
+ * (`packages/development/lib/team-defaults.js:13-16`), so the vendored copy only finds it when
+ * that YAML sits at `vendor/skills/...` beside `vendor/lib/`.
+ */
 const SCRIPT_FILES: Array<{ src: string; dest: string }> = [
   {
     src: 'packages/git/skills/git-town/scripts/validate-git-town.sh',
     dest: 'vendor/scripts/validate-git-town.sh',
+  },
+  {
+    src: 'packages/development/skills/ensemble-configure-team/references/team-configuration.yaml',
+    dest: 'vendor/skills/ensemble-configure-team/references/team-configuration.yaml',
   },
 ];
 
