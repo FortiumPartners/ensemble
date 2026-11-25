@@ -1,7 +1,6 @@
 ---
 name: ensemble-refine-prd
 description: "Refine and enhance existing PRD with stakeholder feedback and additional detail, or from a meeting summary with --from-meeting"
-disable-model-invocation: true
 metadata:
   version: "2.9.0"
   category: planning

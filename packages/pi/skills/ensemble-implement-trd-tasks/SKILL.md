@@ -4,7 +4,6 @@ description: >-
   Implement TRD with beads project management — persistent bead hierarchy,
   dependency-aware execution via toolchain-cli tracker/work-graph capabilities,
   and cross-session resumability
-disable-model-invocation: true
 metadata:
   version: 3.2.0
   category: implementation

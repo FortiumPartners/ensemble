@@ -1,7 +1,6 @@
 ---
 name: ensemble-fix-issue
 description: Lightweight workflow for bug fixes and small issues
-disable-model-invocation: true
 metadata:
   version: 1.5.0
   category: implementation

@@ -1,7 +1,6 @@
 ---
 name: ensemble-refine-trd
 description: "Refine and enhance existing TRD with stakeholder feedback and additional detail"
-disable-model-invocation: true
 metadata:
   version: "2.7.0"
   category: planning

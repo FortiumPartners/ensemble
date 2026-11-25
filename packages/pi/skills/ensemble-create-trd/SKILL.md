@@ -4,7 +4,6 @@ description: >-
   Create Technical Requirements Document from PRD with architecture design and
   adversarial review; --parser-tables emits Foreman parser-compatible tables
   instead
-disable-model-invocation: true
 metadata:
   version: 3.6.0
   category: planning

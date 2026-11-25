@@ -1,7 +1,6 @@
 ---
 name: ensemble-implement-bead
 description: "Implement one bead by ID on a feature branch using the same branching and commit policy as beads-build and implement-trd-tasks, opening its change request through the configured host adapter"
-disable-model-invocation: true
 metadata:
   version: "2.3.0"
   category: implementation

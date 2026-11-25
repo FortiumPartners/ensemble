@@ -7,7 +7,6 @@ description: >-
   or spec a PRD, product requirements or a feature specification, even if they
   do not say "PRD". Adapts depth from solo developer to enterprise scale and
   runs an Implementation Readiness Gate before saving.
-disable-model-invocation: true
 metadata:
   version: 2.7.0
   category: planning
